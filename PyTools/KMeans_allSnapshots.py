@@ -83,5 +83,5 @@ if output is not None:
         os.makedirs(outputFolder)
 else:
     outputFolder = ""
-writePDB(COMArray, outputFolder+"clusters_%d_KMeans.pdb" % n_clusters)
+writePDB(COMArray, outputFolder+"clusters_%d_KMeans_allSnapshots.pdb" % n_clusters)
 writeInitialStructures(centersInfo, outputFolder+"initial_%d.pdb")
