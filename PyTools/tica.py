@@ -25,25 +25,33 @@ def parse_arguments():
     parser.add_argument("ligand_resname", type=str, help="Name of the ligand in the PDB")
     parser.add_argument("lag", type=int, help="Lagtime to use in the TICA model")
     parser.add_argument("nTraj", type=int, help="Number of trajectories per epoch")
+    parser.add_argument("-o", default=None, help="Path of the folders")
     args = parser.parse_args()
-    return args.nTICs, args.numClusters, args.ligand_resname, args.lag, args.nTraj
+    return args.nTICs, args.numClusters, args.ligand_resname, args.lag, args.nTraj, args.o
 
-nTICs, numClusters, ligand_resname, lag, nTraj = parse_arguments()
+
+def extractCOM(PDB_snapshot):
+    pdb_obj = atomset.PDB()
+    pdb_obj.initialise(snapshot, resname=ligand_resname)
+    return pdb_obj.getCOM()
+
+
+nTICs, numClusters, ligand_resname, lag, nTraj, out_path = parse_arguments()
+if out_path is None:
+    folderPath = ""
+else:
+    folderPath = out_path
 trajectoryFolder = "tica_projected_trajs"
 trajectoryBasename = "tica_traj*"
-numClusters = 40
 stride = 1
 clusterCountsThreshold = 0
-# lagtime = 100
-# lagtimes = [10, 50, 100, 200, 300, 500, 600, 700, 800, 1000]
-# numberOfITS = -1
 
 folders = utilities.get_epoch_folders(".")
 folders.sort(key=int)
 if not os.path.exists("tica.pkl"):
     trajs = []
     for epoch in folders:
-        trajFiles = glob.glob("%s/repeatedExtractedCoordinates/coord*" % epoch)
+        trajFiles = glob.glob(os.path.join(folderPath, "%s/repeatedExtractedCoordinates/coord*" % epoch))
         trajFiles.sort(key=lambda x: int(x[x.rfind("_")+1:-4]))
         for traj in trajFiles:
             trajs.append(np.loadtxt(traj))
@@ -72,41 +80,29 @@ clusteringObject = cluster.Cluster(numClusters, trajectoryFolder,
 clusteringObject.clusterTrajectories()
 clusteringObject.eliminateLowPopulatedClusters(clusterCountsThreshold)
 
+utilities.makeFolder("tica_COM")
 trajsUniq = []
+projectedUniq = []
 for epoch in folders:
-    trajFiles = glob.glob("%s/extractedCoordinates/coord*" % epoch)
+    trajFiles = glob.glob(os.path.join(folderPath, "%s/extractedCoordinates/coord*" % epoch))
     trajFiles.sort(key=lambda x: int(x[x.rfind("_")+1:-4]))
-    print trajFiles
-    for traj in trajFiles:
-        trajLoad = np.loadtxt(traj)
+    for trajName in trajFiles:
+        trajNum = int(trajName[trajName.rfind("_")+1:-4])
+        snapshotsPDB = utilities.getSnapshots(os.path.join(folderPath, "%s/trajectory_%d.pdb" % (epoch, trajNum)))
+        trajCOM = [extractCOM(snapshot) for snapshot in snapshotsPDB]
+        trajsUniq.append(trajCOM)
+        trajLoad = np.loadtxt(trajName)
         if len(trajLoad.shape) == 1:
             trajLoad = trajLoad[np.newaxis, :]
-        trajsUniq.append(trajLoad)
-
-projectedUniq = tica.transform(trajsUniq)
-projectedUniq_filtered = [traj[:, :nTICs] for traj in projectedUniq]
-
-utilities.makeFolder("tica_COM")
-for i, epoch in enumerate(folders):
-    for iTraj, traj in enumerate(projectedUniq_filtered[i*nTraj:(i+1)*nTraj]):
-        # TODO:remove hardcoded path
-        snapshotsPDB = utilities.getSnapshots("/home/jgilaber/urokinases_free_energy/1o3f_adaptive_expl_sameR/%s/trajectory_%d.pdb" % (epoch, iTraj+1))
-        COM_array = []
-        for snapshot in snapshotsPDB:
-            pdb_object = atomset.PDB()
-            pdb_object.initialise(snapshot, resname=ligand_resname)
-            COM_array.append(pdb_object.getCOM())
-        try:
-            np.savetxt("tica_COM/traj_%d_%d.dat" % (i, iTraj+1), np.hstack((np.array(COM_array), traj)))
-        except:
-            import pdb
-            pdb.set_trace()
+        projectedTraj = tica.transform(trajLoad)[:, :nTICs]
+        projectedUniq.append(projectedTraj)
+        np.savetxt("tica_COM/traj_%s_%d.dat" % (epoch, trajNum), np.hstack((np.array(trajCOM), projectedTraj)))
 
 clusterCenters = clusteringObject.clusterCenters
-dtrajs = clusteringObject.assignNewTrajectories(projectedUniq_filtered)
+dtrajs = clusteringObject.assignNewTrajectories(projectedUniq)
 centersInfo = {x: {"structure": None, "minDist": 1e6} for x in xrange(numClusters)}
 for i, epoch in enumerate(folders):
-    for iTraj, traj in enumerate(projectedUniq_filtered[i*nTraj:(i+1)*nTraj]):
+    for iTraj, traj in enumerate(projectedUniq[i*nTraj:(i+1)*nTraj]):
         for nSnap, snapshot in enumerate(traj):
             clusterInd = dtrajs[i*nTraj+iTraj][nSnap]
             dist = np.sqrt(np.sum((clusterCenters[clusterInd]-snapshot)**2))
@@ -118,12 +114,11 @@ if not os.path.exists("clusterCenters"):
     os.makedirs("clusterCenters")
 COM_list = []
 for clusterNum in centersInfo:
-    epoch, traj, snap = centersInfo[clusterNum]['structure']
-    # TODO:remove hardcoded path
-    snapshots = utilities.getSnapshots("/home/jgilaber/urokinases_free_energy/1o3f_adaptive_expl_sameR/%s/trajectory_%d.pdb" % (epoch, traj))
+    epoch, trajNum, snap = centersInfo[clusterNum]['structure']
+    COM_list.append(trajsUniq[int(epoch)*nTraj+(trajNum-1)][snap])
+    snapshots = utilities.getSnapshots(os.path.join(folderPath, "%s/trajectory_%d.pdb" % (epoch, trajNum)))
     pdb_object = atomset.PDB()
     pdb_object.initialise(snapshots[snap], resname=ligand_resname)
-    COM_list.append(pdb_object.getCOM())
     pdb_object.writePDB("clusterCenters/cluster_%d.pdb" % clusterNum)
 
 distances = [[nC, centersInfo[nC]['minDist']] for nC in xrange(numClusters)]
@@ -158,80 +153,3 @@ if plotTICA:
     # plt.show()
     # import sys
     # sys.exit()
-
-# # plt.legend()
-# # plt.figure()
-# # for state in range(3, 6):
-# #     # plt.figure()
-# #     plt.plot(coords[:,:,state].flatten(), 'x', markersize=0.5, label="Tica %d" % (state+1))
-# #     # plt.title("Tica %d" % (state+1))
-# # plt.legend()
-# plt.show()
-
-# conformations = {k: [] for k in range(3)}
-# IC = 8
-# frames = 0
-# for i, epoch in enumerate(folders):
-#     for iTraj, traj in enumerate(projected[i*nTraj:(i+1)*nTraj]):
-#         # np.savetxt(os.path.join(trajectoryFolder, "%s_%d_%d.dat" % (trajectoryBasename[:-1], int(epoch), iTraj+1)), traj)
-#         if len(traj.shape) < 2:
-#             traj = [traj]
-#         for nSnap, snapshot in enumerate(traj):
-#             if frames < 7000 and abs(snapshot[IC]+0.1) < 0.1 and len(conformations[0]) < 7000:
-#                 conformations[0].append((epoch, iTraj+1, nSnap))
-#             else:
-#                 if abs(snapshot[IC]-3) < 2.0 and len(conformations[1]) < 7000:
-#                     conformations[1].append((epoch, iTraj+1, nSnap))
-#                 elif len(conformations[2]) < 3000 and abs(snapshot[IC]+3.0) < 2.0:
-#                     conformations[2].append((epoch, iTraj+1, nSnap))
-#             frames += 1
-#
-# for ind, confs in conformations.iteritems():
-#     with open("conformations_%d.dat" % ind, "w") as f:
-#         f.write("\n".join(map(str, confs))+"\n")
-# plt.plot(tica.eigenvalues[:10])
-# plt.figure()
-# plt.plot(tica.eigenvectors[:,:10], 'x')
-# plt.show()
-
-# trajArr = np.array(trajs)
-# eiv = []
-# lagtimes = [10, 25, 50, 100, 200, 300, 500, 1000]
-# for lag in lagtimes:
-#     tica = coor.tica(data=trajs, lag=lag)
-#     print tica
-#     # projected = tica.get_output()
-#     # ic = tica.eigenvectors
-#     eiv.append(tica.eigenvalues)
-#     # a1 = tica.get_output()
-#     # a2 = tica.get_output(dimensions=range(3))
-#
-# plots = True
-# if plots:
-#     for lag, ev in zip(lagtimes, eiv):
-#         # plt.plot(np.abs(ev), label="Lagtime %d" % lag)
-#         plt.plot(ev, label="Lagtime %d" % lag)
-#     plt.legend()
-#     plt.show()
-# if os.path.exists("MSM_object.pkl"):
-#     with open("MSM_object.pkl") as f:
-#         MSMObject = pickle.load(f)
-# else:
-#     calculateMSM = estimate.MSM(error=False, dtrajs=clusteringObject.dtrajs)
-#     calculateMSM.estimate(lagtime=lagtime, lagtimes=lagtimes, numberOfITS=numberOfITS)
-#     MSMObject = calculateMSM.MSM_object
-#     with open("MSM_object.pkl", "w") as fw:
-#         pickle.dump(MSMObject, fw)
-
-# pi, clusters = computeDeltaG.ensure_connectivity(MSMObject, clusteringObject.clusterCenters)
-# d = 0.75
-# bins = computeDeltaG.create_box(clusters, projected, d)
-# microstateVolume = computeDeltaG.calculate_microstate_volumes(clusters, projected, bins, d)
-# np.savetxt("volumeOfClusters.dat", microstateVolume)
-#
-# gpmf, string = calculate_pmf(microstateVolume, pi)
-#
-# pmf_xyzg = np.hstack((clusters, np.expand_dims(gpmf,axis=1)))
-# np.savetxt("pmf_xyzg.dat", pmf_xyzg)
-#
-# writePDB(pmf_xyzg)
