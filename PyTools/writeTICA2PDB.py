@@ -1,7 +1,6 @@
 import glob
 import numpy as np
 from AdaptivePELE.utilities import utilities
-from AdaptivePELE.testing.computeDeltaG import writePDB
 
 folders = utilities.get_epoch_folders(".")
 data_folder = "tica_COM/"
@@ -23,4 +22,4 @@ nConf, nTICS = COM_tica.shape
 ind = [0, 1, 2, 0]
 for i in xrange(3, nTICS):
     ind[-1] = i
-    writePDB(COM_tica[:, ind], title="tica_pdb/tica_%d.pdb" % (i-2))
+    utilities.write_PDB_clusters(COM_tica[:, ind], title="tica_pdb/tica_%d.pdb" % (i-2), use_beta=True)

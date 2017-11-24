@@ -128,9 +128,7 @@ plotTICA = True
 if plotTICA:
     plt.rcParams.update({'legend.markerscale': 10})
     # coords = np.array(projected)
-    states = [4, 5, 6, 7, 8]
-    states = range(3, 9)
-    states = range(10)
+    states = range(nTICs)
     for state in states:
         plt.figure()
         # plt.plot(coords[:,:,state].flatten(), 'x', markersize=0.5, label="Tica %d" % (state+1))
@@ -140,7 +138,8 @@ if plotTICA:
                 plt.plot(range(plotNum, plotNum+traj.shape[0]), traj[:, state], 'x', markersize=0.5, color="r")
                 plotNum += traj.shape[0]
                 # plt.plot(traj[:, 2], traj[:, state], 'x', markersize=0.5, color="r")
-            except IndexError:
+            except IndexError as e:
+                pdb.set_trace()
                 plt.plot([plotNum], traj[state], 'x', markersize=0.5, color="r")
                 plotNum += 1
                 # plt.plot(traj[2], traj[state], 'x', markersize=0.5, color="r")
