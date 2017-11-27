@@ -3,10 +3,8 @@ import glob
 import pickle
 import numpy as np
 import argparse
-# from AdaptivePELE.testing import estimateDG
-# from AdaptivePELE.testing import computeDeltaG
-# from AdaptivePELE.testing import estimate
 from AdaptivePELE.testing import cluster
+from AdaptivePELE.testing import extractCoords
 from AdaptivePELE.utilities import utilities
 from AdaptivePELE.atomset import atomset
 import pyemma.coordinates as coor
@@ -24,10 +22,11 @@ def parse_arguments():
     parser.add_argument("numClusters", type=int, help="Number of clusters to create")
     parser.add_argument("ligand_resname", type=str, help="Name of the ligand in the PDB")
     parser.add_argument("lag", type=int, help="Lagtime to use in the TICA model")
-    parser.add_argument("nTraj", type=int, help="Number of trajectories per epoch")
+    parser.add_argument("nTraj", type=int, help="Number of real trajectories per epoch (i.e number of processors-1)")
+    parser.add_argument("totalSteps", type=int, default=0, help="Total number of steps in traj. Equivalent to epoch length in adaptive runs")
     parser.add_argument("-o", default=None, help="Path of the folders")
     args = parser.parse_args()
-    return args.nTICs, args.numClusters, args.ligand_resname, args.lag, args.nTraj, args.o
+    return args.nTICs, args.numClusters, args.ligand_resname, args.lag, args.nTraj, args.totalSteps, args.o
 
 
 def extractCOM(PDB_snapshot):
@@ -36,17 +35,23 @@ def extractCOM(PDB_snapshot):
     return pdb_obj.getCOM()
 
 
-nTICs, numClusters, ligand_resname, lag, nTraj, out_path = parse_arguments()
+nTICs, numClusters, ligand_resname, lag, nTraj, n_steps, out_path = parse_arguments()
 if out_path is None:
     folderPath = ""
+    curr_folder = "."
 else:
     folderPath = out_path
+    curr_folder = out_path
+
+folders = utilities.get_epoch_folders(curr_folder)
+if not os.path.exists(os.path.join(folderPath, "0/repeatedExtractedCoordinates/")):
+    # Extract ligand and alpha carbons coordinates
+    extractCoords.main(folder_name=curr_folder, lig_resname=ligand_resname, numtotalSteps=n_steps, protein_CA=True, non_Repeat=False)
 trajectoryFolder = "tica_projected_trajs"
 trajectoryBasename = "tica_traj*"
 stride = 1
 clusterCountsThreshold = 0
 
-folders = utilities.get_epoch_folders(".")
 folders.sort(key=int)
 if not os.path.exists("tica.pkl"):
     trajs = []
@@ -96,7 +101,8 @@ for epoch in folders:
             trajLoad = trajLoad[np.newaxis, :]
         projectedTraj = tica.transform(trajLoad)[:, :nTICs]
         projectedUniq.append(projectedTraj)
-        np.savetxt("tica_COM/traj_%s_%d.dat" % (epoch, trajNum), np.hstack((np.array(trajCOM), projectedTraj)))
+        np.savetxt("tica_COM/traj_%s_%d.dat" % (epoch, trajNum), np.hstack((np.array(trajCOM), projectedTraj)),
+                   header="COM coordinates x\ty\tz\t TICA coordinates\t"+"\t".join(["TICA %d" % tic for tic in xrange(nTICs)]) + "\n")
 
 clusterCenters = clusteringObject.clusterCenters
 dtrajs = clusteringObject.assignNewTrajectories(projectedUniq)
@@ -139,7 +145,6 @@ if plotTICA:
                 plotNum += traj.shape[0]
                 # plt.plot(traj[:, 2], traj[:, state], 'x', markersize=0.5, color="r")
             except IndexError as e:
-                pdb.set_trace()
                 plt.plot([plotNum], traj[state], 'x', markersize=0.5, color="r")
                 plotNum += 1
                 # plt.plot(traj[2], traj[state], 'x', markersize=0.5, color="r")
