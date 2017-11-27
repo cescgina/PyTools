@@ -2,10 +2,17 @@ import glob
 import numpy as np
 from AdaptivePELE.utilities import utilities
 
-folders = utilities.get_epoch_folders(".")
+
+def sort_split_by_numbers(traj_name):
+    trajNum, snapNum = traj_name.split("_")[-2:]
+    return (int(trajNum), int(snapNum[:-4]))
+
+
 data_folder = "tica_COM/"
-files = glob.glob(data_folder+"traj_*")
 COM_tica = []
+files = glob.glob(data_folder+"traj_*")
+files.sort(key=sort_split_by_numbers)
+print files
 for traj in files:
     traj_data = np.loadtxt(traj)
     if len(traj_data.shape) < 2:
