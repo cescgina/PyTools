@@ -12,7 +12,6 @@ data_folder = "tica_COM/"
 COM_tica = []
 files = glob.glob(data_folder+"traj_*")
 files.sort(key=sort_split_by_numbers)
-print files
 for traj in files:
     traj_data = np.loadtxt(traj)
     if len(traj_data.shape) < 2:
