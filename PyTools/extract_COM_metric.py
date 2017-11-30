@@ -3,8 +3,9 @@
     COM"""
 import numpy as np
 import argparse
+import itertools
 from AdaptivePELE.utilities import utilities
-from AdaptivePELE.atomset import atomset
+from PyTools.tica import get_coords
 
 
 def parse_arguments():
@@ -17,11 +18,13 @@ def parse_arguments():
     parser.add_argument("ligand_resname", type=str, help="Name of the ligand in the PDB")
     parser.add_argument("nTraj", type=int, help="Number of trajectories per epoch")
     parser.add_argument("-filter", type=float, default=None, help="Filter the maximum value of the metric for visualization")
+    parser.add_argument("-stride", type=int, default=1, help="Stride, e.g. select one conformation out of every x, default 1, that is take all")
+    parser.add_argument("-atomId", type=str, default="", help="Atoms to user for the coordinates of the conformation, if not specified use the center of mass")
     args = parser.parse_args()
-    return args.metricCol, args.ligand_resname, args.nTraj, args.filter
+    return args.metricCol, args.ligand_resname, args.nTraj, args.filter, args.stride, args.atomId
 
 
-metricCol, lig_resname, nTrajs, filter_val = parse_arguments()
+metricCol, lig_resname, nTrajs, filter_val, stride, atomId = parse_arguments()
 
 folders = utilities.get_epoch_folders(".")
 data = []
@@ -34,10 +37,8 @@ for epoch in folders:
         if len(report.shape) < 2:
             report = report[np.newaxis, :]
         snapshots = utilities.getSnapshots("%s/trajectory_%d.pdb" % (epoch, iTraj))
-        for i, snapshot in enumerate(snapshots):
-            pdb_obj = atomset.PDB()
-            pdb_obj.initialise(snapshot, resname=lig_resname)
-            data.append(pdb_obj.getCOM() + [report[i, metricCol]])
+        for i, snapshot in enumerate(itertools.islice(snapshots, 0, None, stride)):
+            data.append(get_coords(snapshot, atomId, lig_resname) + [report[i, metricCol]])
             confData.append((epoch, iTraj, i))
 
 data = np.array(data)

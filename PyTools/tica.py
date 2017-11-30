@@ -3,6 +3,7 @@ import glob
 import pickle
 import numpy as np
 import argparse
+import itertools
 from AdaptivePELE.testing import cluster
 from AdaptivePELE.testing import extractCoords
 from AdaptivePELE.utilities import utilities
@@ -25,17 +26,25 @@ def parse_arguments():
     parser.add_argument("nTraj", type=int, help="Number of real trajectories per epoch (i.e number of processors-1)")
     parser.add_argument("totalSteps", type=int, default=0, help="Total number of steps in traj. Equivalent to epoch length in adaptive runs")
     parser.add_argument("-o", default=None, help="Path of the folders")
+    parser.add_argument("-stride", type=int, default=1, help="Stride, e.g. select one conformation out of every x, default 1, that is take all")
+    parser.add_argument("-atomId", type=str, default="", help="Atoms to use for the coordinates of the conformation, if not specified use the center of mass")
     args = parser.parse_args()
-    return args.nTICs, args.numClusters, args.ligand_resname, args.lag, args.nTraj, args.totalSteps, args.o
+    return args.nTICs, args.numClusters, args.ligand_resname, args.lag, args.nTraj, args.totalSteps, args.o, args.stride, args.atomId
 
 
-def extractCOM(PDB_snapshot):
+def get_coords(conformation, atom, lig_name):
     pdb_obj = atomset.PDB()
-    pdb_obj.initialise(snapshot, resname=ligand_resname)
-    return pdb_obj.getCOM()
+    if atom:
+        atom_name = atom.split(":")[1]
+        pdb_obj.initialise(snapshot, atomname=atom_name)
+        # getAtomCoords returns an array, while getCOM returns a list
+        return pdb_obj.getAtom(atom).getAtomCoords().tolist()
+    else:
+        pdb_obj.initialise(snapshot, resname=lig_name)
+        return pdb_obj.getCOM()
 
 
-nTICs, numClusters, ligand_resname, lag, nTraj, n_steps, out_path = parse_arguments()
+nTICs, numClusters, ligand_resname, lag, nTraj, n_steps, out_path, stride_conformations, atomId = parse_arguments()
 if out_path is None:
     folderPath = ""
     curr_folder = "."
@@ -94,12 +103,12 @@ for epoch in folders:
     for trajName in trajFiles:
         trajNum = int(trajName[trajName.rfind("_")+1:-4])
         snapshotsPDB = utilities.getSnapshots(os.path.join(folderPath, "%s/trajectory_%d.pdb" % (epoch, trajNum)))
-        trajCOM = [extractCOM(snapshot) for snapshot in snapshotsPDB]
+        trajCOM = [get_coords(snapshot, atomId, ligand_resname) for snapshot in itertools.islice(snapshotsPDB, 0, None, stride_conformations)]
         trajsUniq.append(trajCOM)
         trajLoad = np.loadtxt(trajName)
         if len(trajLoad.shape) == 1:
             trajLoad = trajLoad[np.newaxis, :]
-        projectedTraj = tica.transform(trajLoad)[:, :nTICs]
+        projectedTraj = tica.transform(trajLoad[::stride_conformations])[:, :nTICs]
         projectedUniq.append(projectedTraj)
         np.savetxt("tica_COM/traj_%s_%d.dat" % (epoch, trajNum), np.hstack((np.array(trajCOM), projectedTraj)),
                    header="COM coordinates x\ty\tz\t TICA coordinates\t"+"\t".join(["TICA %d" % tic for tic in xrange(nTICs)]) + "\n")
