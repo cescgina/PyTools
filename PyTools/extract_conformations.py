@@ -2,7 +2,6 @@ import numpy as np
 import os
 import argparse
 from AdaptivePELE.utilities import utilities
-from AdaptivePELE.atomset import atomset
 
 
 def parse_arguments():
@@ -28,7 +27,7 @@ if not os.path.exists(output_folder):
 filename = "conformation_data.dat"
 if not os.path.exists(filename):
     raise IOError("File conformation_data.dat not found, please be sure to run COM_BE.py before this script")
-print names
+print "Selected names: ", ' '.join(names)
 with open(filename) as f:
     f.readline()
     for line in f:
@@ -39,6 +38,5 @@ with open(filename) as f:
         report = np.loadtxt("%s/report_%s" % (epoch, iTraj))
         print line[0], "=>", "epoch %s, trajectory %s, snapshot %s" % tuple(line[1:4]), "metric", report[int(nSnap), metricCol]
         snapshots = utilities.getSnapshots("%s/trajectory_%s.pdb" % (epoch, iTraj))
-        pdb_obj = atomset.PDB()
-        pdb_obj.initialise(snapshots[int(nSnap)], resname=lig_resname)
-        pdb_obj.writePDB(output_folder+"conf_%s_%s_%s.pdb" % (epoch, iTraj, nSnap))
+        with open(output_folder+"conf_%s_%s_%s.pdb" % (epoch, iTraj, nSnap), "w") as fw:
+            fw.write(snapshots[int(nSnap)])
