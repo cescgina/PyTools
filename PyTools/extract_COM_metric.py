@@ -16,11 +16,12 @@ def parse_arguments():
     parser.add_argument("metricCol", type=int, help="Column of the metric to consider")
     parser.add_argument("ligand_resname", type=str, help="Name of the ligand in the PDB")
     parser.add_argument("nTraj", type=int, help="Number of trajectories per epoch")
+    parser.add_argument("-filter", type=float, default=None, help="Filter the maximum value of the metric for visualization")
     args = parser.parse_args()
-    return args.metricCol, args.ligand_resname, args.nTraj
+    return args.metricCol, args.ligand_resname, args.nTraj, args.filter
 
 
-metricCol, lig_resname, nTrajs = parse_arguments()
+metricCol, lig_resname, nTrajs, filter_val = parse_arguments()
 
 folders = utilities.get_epoch_folders(".")
 data = []
@@ -29,7 +30,8 @@ confData = []
 for epoch in folders:
     for iTraj in xrange(1, nTrajs):
         report = np.loadtxt("%s/report_%d" % (epoch, iTraj))
-        minMetric = min(minMetric, report[:, metricCol].min())
+        if len(report.shape) < 2:
+            report = report[np.newaxis, :]
         snapshots = utilities.getSnapshots("%s/trajectory_%d.pdb" % (epoch, iTraj))
         for i, snapshot in enumerate(snapshots):
             pdb_obj = atomset.PDB()
@@ -38,9 +40,17 @@ for epoch in folders:
             confData.append((epoch, iTraj, i))
 
 data = np.array(data)
-print "Min value for metric", minMetric
+minInd = np.argmin(data[:, -1])
+minMetric = data[minInd, -1]
 data[:, -1] -= minMetric
-namesPDB = utilities.write_PDB_clusters(data, title="cluster_BE.pdb", use_beta=True)
+if filter_val is not None:
+    data_filter = data.copy()
+    data_filter[data_filter > filter_val] = filter_val
+    namesPDB = utilities.write_PDB_clusters(data_filter, title="cluster_metric.pdb", use_beta=True)
+else:
+    namesPDB = utilities.write_PDB_clusters(data, title="cluster_metric.pdb", use_beta=True)
+print "Min value for metric", minMetric, namesPDB[minInd]
+
 with open("conformation_data.dat", "w") as fw:
     fw.write("PDB name\tEpoch\tTrajectory\tSnapshot\tCOM x\t y\t x\tMetric\n")
     for j, name in enumerate(namesPDB):
