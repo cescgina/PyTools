@@ -12,13 +12,16 @@ def parse_arguments():
     desc = "Write certain conformations specified from a extract_COM_metric.py pdb"
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument("ligand_resname", type=str, help="Name of the ligand in the PDB")
+    parser.add_argument("metricCol", type=int, help="Column of the metric to consider")
     parser.add_argument("names", type=str, nargs='+', help="Names of the conformation to extract")
+    parser.add_argument("-o", type=str, default="conformations", help="Output path to write the structures")
     args = parser.parse_args()
-    return args.ligand_resname, set(args.names)
+    return args.ligand_resname, args.metricCol, set(args.names), args.o
 
 
-lig_resname, names = parse_arguments()
-output_folder = "conformations/"
+lig_resname, metricCol, names, output_folder = parse_arguments()
+if not output_folder.endswith("/"):
+    output_folder += "/"
 if not os.path.exists(output_folder):
     os.makedirs(output_folder)
 
@@ -32,9 +35,9 @@ with open(filename) as f:
         line = line.strip().split()
         if line[0] not in names:
             continue
-        print line[0], "=>", "epoch %s, trajectory %s, snapshot %s" % tuple(line[1:4])
         epoch, iTraj, nSnap = line[1:4]
         report = np.loadtxt("%s/report_%s" % (epoch, iTraj))
+        print line[0], "=>", "epoch %s, trajectory %s, snapshot %s" % tuple(line[1:4]), "metric", report[int(nSnap), metricCol]
         snapshots = utilities.getSnapshots("%s/trajectory_%s.pdb" % (epoch, iTraj))
         pdb_obj = atomset.PDB()
         pdb_obj.initialise(snapshots[int(nSnap)], resname=lig_resname)
