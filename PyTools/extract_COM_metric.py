@@ -28,6 +28,7 @@ data = []
 minMetric = 1e6
 confData = []
 for epoch in folders:
+    print "Processing epoch %s" % epoch
     for iTraj in xrange(1, nTrajs):
         report = np.loadtxt("%s/report_%d" % (epoch, iTraj))
         if len(report.shape) < 2:
@@ -52,7 +53,7 @@ else:
 print "Min value for metric", minMetric, namesPDB[minInd]
 
 with open("conformation_data.dat", "w") as fw:
-    fw.write("PDB name\tEpoch\tTrajectory\tSnapshot\tCOM x\t y\t x\tMetric\n")
+    fw.write("PDB name      Epoch Trajectory   Snapshot   COM x       y       x     Metric\n")
     for j, name in enumerate(namesPDB):
-        info = [name]+[x for x in confData[j]]+[d for d in data[j]]
-        fw.write("{:s}\t{:s}\t{:d}\t{:d}\t{:.3f}\t{:.3f}\t{:.3f}\t{:.3f}\n".format(*tuple(info)))
+        info = [name.rjust(8)]+[str(x).rjust(10) for x in confData[j]]+[str(np.round(d, 3)).rjust(7) for d in data[j, :-1]] + [str(np.round(data[j, -1], 2)).rjust(10)]
+        fw.write("{:s} {:s} {:s} {:s} {:s} {:s} {:s} {:s}\n".format(*tuple(info)))
