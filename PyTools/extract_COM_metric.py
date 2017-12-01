@@ -24,37 +24,38 @@ def parse_arguments():
     return args.metricCol, args.ligand_resname, args.nTraj, args.filter, args.stride, args.atomId
 
 
-metricCol, lig_resname, nTrajs, filter_val, stride, atomId = parse_arguments()
+if __name__ == "__main__":
+    metricCol, lig_resname, nTrajs, filter_val, stride, atomId = parse_arguments()
 
-folders = utilities.get_epoch_folders(".")
-data = []
-minMetric = 1e6
-confData = []
-for epoch in folders:
-    print "Processing epoch %s" % epoch
-    for iTraj in xrange(1, nTrajs):
-        report = np.loadtxt("%s/report_%d" % (epoch, iTraj))
-        if len(report.shape) < 2:
-            report = report[np.newaxis, :]
-        snapshots = utilities.getSnapshots("%s/trajectory_%d.pdb" % (epoch, iTraj))
-        for i, snapshot in enumerate(itertools.islice(snapshots, 0, None, stride)):
-            data.append(get_coords(snapshot, atomId, lig_resname) + [report[i, metricCol]])
-            confData.append((epoch, iTraj, i))
+    folders = utilities.get_epoch_folders(".")
+    data = []
+    minMetric = 1e6
+    confData = []
+    for epoch in folders:
+        print "Processing epoch %s" % epoch
+        for iTraj in xrange(1, nTrajs):
+            report = np.loadtxt("%s/report_%d" % (epoch, iTraj))
+            if len(report.shape) < 2:
+                report = report[np.newaxis, :]
+            snapshots = utilities.getSnapshots("%s/trajectory_%d.pdb" % (epoch, iTraj))
+            for i, snapshot in enumerate(itertools.islice(snapshots, 0, None, stride)):
+                data.append(get_coords(snapshot, atomId, lig_resname) + [report[i, metricCol]])
+                confData.append((epoch, iTraj, i))
 
-data = np.array(data)
-minInd = np.argmin(data[:, -1])
-minMetric = data[minInd, -1]
-data[:, -1] -= minMetric
-if filter_val is not None:
-    data_filter = data.copy()
-    data_filter[data_filter > filter_val] = filter_val
-    namesPDB = utilities.write_PDB_clusters(data_filter, title="cluster_metric.pdb", use_beta=True)
-else:
-    namesPDB = utilities.write_PDB_clusters(data, title="cluster_metric.pdb", use_beta=True)
-print "Min value for metric", minMetric, namesPDB[minInd]
+    data = np.array(data)
+    minInd = np.argmin(data[:, -1])
+    minMetric = data[minInd, -1]
+    data[:, -1] -= minMetric
+    if filter_val is not None:
+        data_filter = data.copy()
+        data_filter[data_filter > filter_val] = filter_val
+        namesPDB = utilities.write_PDB_clusters(data_filter, title="cluster_metric.pdb", use_beta=True)
+    else:
+        namesPDB = utilities.write_PDB_clusters(data, title="cluster_metric.pdb", use_beta=True)
+    print "Min value for metric", minMetric, namesPDB[minInd]
 
-with open("conformation_data.dat", "w") as fw:
-    fw.write("PDB name      Epoch Trajectory   Snapshot   COM x       y       x     Metric\n")
-    for j, name in enumerate(namesPDB):
-        info = [name.rjust(8)]+[str(x).rjust(10) for x in confData[j]]+[str(np.round(d, 3)).rjust(7) for d in data[j, :-1]] + [str(np.round(data[j, -1], 2)).rjust(10)]
-        fw.write("{:s} {:s} {:s} {:s} {:s} {:s} {:s} {:s}\n".format(*tuple(info)))
+    with open("conformation_data.dat", "w") as fw:
+        fw.write("PDB name      Epoch Trajectory   Snapshot   COM x       y       x     Metric\n")
+        for j, name in enumerate(namesPDB):
+            info = [name.rjust(8)]+[str(x).rjust(10) for x in confData[j]]+[str(np.round(d, 3)).rjust(7) for d in data[j, :-1]] + [str(np.round(data[j, -1], 2)).rjust(10)]
+            fw.write("{:s} {:s} {:s} {:s} {:s} {:s} {:s} {:s}\n".format(*tuple(info)))
