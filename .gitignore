@@ -1,1 +1,4 @@
-*/*.pyc
+build/
+PyTools/*.pyc
+*.sw[op]
+.DS_Store
