@@ -4,8 +4,7 @@ import pickle
 import numpy as np
 import argparse
 import itertools
-from AdaptivePELE.testing import cluster
-from AdaptivePELE.testing import extractCoords
+from AdaptivePELE.testing import cluster, extractCoords
 from AdaptivePELE.utilities import utilities
 from AdaptivePELE.atomset import atomset
 import pyemma.coordinates as coor
