@@ -32,11 +32,12 @@ def main(ligand, clusters_file, conf_folder):
     trajBasename = "coord*"
     epoch_folders = utilities.get_epoch_folders(conf_folder)
     numClusters = cluster_centers.shape[0]
+    coordinates = [[] for cl in xrange(numClusters)]
     for it in epoch_folders:
         files = glob.glob(conf_folder+"%s/extractedCoordinates/coord*" % it)
         for f in files:
             traj = os.path.splitext(f)[0].split("_")[-1]
-            shutil.copy(f, "allTrajs_nonRepeat/coord_%s_%s.dat" % (it, traj))
+            shutil.copy(f, trajFolder+"/coord_%s_%s.dat" % (it, traj))
     clusteringObject = cluster.Cluster(numClusters, trajFolder, trajBasename,
                                        alwaysCluster=False, stride=stride)
     clusteringObject.clusterTrajectories()
@@ -49,12 +50,15 @@ def main(ligand, clusters_file, conf_folder):
         print dtraj
         traj = np.loadtxt(dtraj)
         epoch, traj_num = map(int, os.path.splitext(dtraj)[0].split("_", 3)[1:])
+        trajPositions = np.loadtxt(trajFolder+"/coord_%d_%d.dat" % (epoch, traj_num))
         snapshots = utilities.getSnapshots(conf_folder+"/%d/trajectory_%d.pdb" % (epoch, traj_num))
         for nSnap, cluster_num in enumerate(traj):
+            coordinates[int(cluster_num)].append(trajPositions[nSnap])
             filename = "cluster_%d/allStructures/conf_%d_%d_%d.pdb" % (cluster_num, epoch, traj_num, nSnap)
             with open(filename, "w") as fw:
                 fw.write(snapshots[nSnap])
-
+    for cl in xrange(numClusters):
+        np.savetxt("cluster_%d/positions.dat" % cl, coordinates[cl])
 
 if __name__ == "__main__":
     lig, conformation_folder, clusters = parse_arguments()
