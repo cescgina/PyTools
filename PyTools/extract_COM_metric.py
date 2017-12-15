@@ -20,13 +20,12 @@ def parse_arguments():
     parser.add_argument("-filter", type=float, default=None, help="Filter the maximum value of the metric for visualization")
     parser.add_argument("-stride", type=int, default=1, help="Stride, e.g. select one conformation out of every x, default 1, that is take all")
     parser.add_argument("-atomId", type=str, default="", help="Atoms to user for the coordinates of the conformation, if not specified use the center of mass")
+    parser.add_argument("-s", "-savingFreq", type=int, default=1, help="Saving frequency of PELE simulation")
     args = parser.parse_args()
-    return args.metricCol, args.ligand_resname, args.nTraj, args.filter, args.stride, args.atomId
+    return args.metricCol, args.ligand_resname, args.nTraj, args.filter, args.stride, args.atomId, args.s
 
 
-if __name__ == "__main__":
-    metricCol, lig_resname, nTrajs, filter_val, stride, atomId = parse_arguments()
-
+def main(metricCol, lig_resname, nTrajs, filter_val, stride, atomId, saving_frequency):
     folders = utilities.get_epoch_folders(".")
     data = []
     minMetric = 1e6
@@ -39,8 +38,9 @@ if __name__ == "__main__":
                 report = report[np.newaxis, :]
             snapshots = utilities.getSnapshots("%s/trajectory_%d.pdb" % (epoch, iTraj))
             for i, snapshot in enumerate(itertools.islice(snapshots, 0, None, stride)):
-                data.append(get_coords(snapshot, atomId, lig_resname) + [report[i, metricCol]])
-                confData.append((epoch, iTraj, i))
+                report_line = i * stride * saving_frequency
+                data.append(get_coords(snapshot, atomId, lig_resname) + [report[report_line, metricCol]])
+                confData.append((epoch, iTraj, report_line))
 
     data = np.array(data)
     minInd = np.argmin(data[:, -1])
@@ -59,3 +59,7 @@ if __name__ == "__main__":
         for j, name in enumerate(namesPDB):
             info = [name.rjust(8)]+[str(x).rjust(10) for x in confData[j]]+[str(np.round(d, 3)).rjust(7) for d in data[j, :-1]] + [str(np.round(data[j, -1], 2)).rjust(10)]
             fw.write("{:s} {:s} {:s} {:s} {:s} {:s} {:s} {:s}\n".format(*tuple(info)))
+
+if __name__ == "__main__":
+    metric_col, ligand, n_trajs, filter_value, stride_val, atom_ids, save_freq = parse_arguments()
+    main(metric_col, ligand, n_trajs, filter_value, stride_val, atom_ids, save_freq)
