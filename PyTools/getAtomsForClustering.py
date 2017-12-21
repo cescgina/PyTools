@@ -37,11 +37,23 @@ def rotate_y(rot_angle, coordinates):
     return np.dot(R, coordinates.T).T
 
 
-def get_vector_direction(coords, com):
+def get_vector_direction(coords):
     sort_distance = np.argsort(np.linalg.norm(coords, axis=1))
     max_point = coords[sort_distance[-1], :]
     min_point = coords[sort_distance[0], :]
-    return max_point-min_point
+    den = np.linalg.norm(max_point-min_point)
+    # http://mathworld.wolfram.com/Point-LineDistance3-Dimensional.html
+    minD = 1000
+    minDpoint = None
+    n_points = coords.shape[0]
+    distances_to_max = np.argsort(np.linalg.norm(coords-max_point, axis=1))
+    for i in distances_to_max[n_points/2:-2]:
+        dist = np.linalg.norm(np.cross(coords[i]-min_point, coords[i]-max_point))/den
+        if dist < minD:
+            minD = dist
+            minDpoint = i
+    min_point = coords[minDpoint]
+    return max_point-min_point, max_point, min_point
 
 
 def get_direction_x(coordinates):
@@ -59,11 +71,14 @@ def preprocess_coords(coords, com, debug):
         ax.scatter([0], [0], zs=[0], c="blue")
 
     # Get a vector representation of the molecule
-    direction = get_vector_direction(coords, com)
+    coords -= com
+    direction, max_point, min_point = get_vector_direction(coords)
     if debug:
         ax.scatter(direction[0], direction[1], zs=direction[2], c="blue")
         coords_plot = coords
         ax.scatter(coords_plot[:, 0], coords_plot[:, 1], zs=coords_plot[:, 2], c="blue")
+        ax.scatter(max_point[0], max_point[1], zs=max_point[2], c="yellow", s=40)
+        ax.scatter(min_point[0], min_point[1], zs=min_point[2], c="yellow", s=40)
     # Project vector onto the yz plane
     azimutal = np.arctan2(direction[1], direction[0])
     if azimutal < 0:
@@ -91,8 +106,62 @@ def preprocess_coords(coords, com, debug):
         coords_plot = coords
         ax.scatter(coords_plot[:, 0], coords_plot[:, 1], zs=coords_plot[:, 2], c="black")
         ax.scatter(direction[0], direction[1], zs=direction[2], c="black")
+        # plt.show()
+    com = np.mean(coords, axis=0)
+    normal = get_plane_normal(coords, com)
+    direction_second = np.cross(direction, normal)
+    angle = np.sign(direction_second[2])*np.arccos(np.dot(direction_second, np.array([1, 0, 0]))/np.linalg.norm(direction_second))
+    direction_second = rotate_y(angle, direction_second)
+    coords = rotate_y(angle, coords)
+    if debug:
+        coords_plot = coords
+        ax.scatter(coords_plot[:, 0], coords_plot[:, 1], zs=coords_plot[:, 2], c="green")
+        ax.scatter(direction[0], direction[1], zs=direction[2], c="green")
         plt.show()
     return coords
+
+
+def get_plane_normal(coordinates, center):
+    atom_ind = np.argsort(np.linalg.norm(coordinates-center, axis=1))[:3]
+    coords_trim = coordinates[atom_ind]
+    return np.cross((coords_trim[1]-coords_trim[0]), (coords_trim[2]-coords_trim[0]))
+
+
+def atoms_closer_to_center(coords, ind, com, nAtoms_selection, atoms, debug):
+    order = np.argsort(coords[:, ind])
+    imin = np.argmin(np.abs(coords[order[:nAtoms_selection]] - com).sum(axis=1))
+    imax = np.argmin(np.abs(coords[order[-nAtoms_selection:]] - com).sum(axis=1))
+    if debug:
+        log_results_debug(ind, coords, order, nAtoms_selection, com, atoms)
+    return [atoms[order[:nAtoms_selection]][imin], atoms[order[-nAtoms_selection:]][imax]]
+
+
+def atoms_further_to_center(coords, ind, com, nAtoms_selection, atoms, debug):
+    order = np.argsort(coords[:, ind])
+    imin = np.argmax(np.abs(coords[order[:nAtoms_selection]] - com).sum(axis=1))
+    imax = np.argmax(np.abs(coords[order[-nAtoms_selection:]] - com).sum(axis=1))
+    if debug:
+        log_results_debug(ind, coords, order, nAtoms_selection, com, atoms)
+    return [atoms[order[:nAtoms_selection]][imin], atoms[order[-nAtoms_selection:]][imax]]
+
+
+def log_results_debug(ind, coords, order, nAtoms_selection, com, atoms):
+    print "min", ['X', 'Y', 'Z'][ind]
+    print np.abs(coords[order[:nAtoms_selection]] - com).sum(axis=1)
+    print atoms[order[:nAtoms_selection]]
+    print "max", ['X', 'Y', 'Z'][ind]
+    print np.abs(coords[order[-nAtoms_selection:]] - com).sum(axis=1)
+    print atoms[order[-nAtoms_selection:]]
+
+
+def get_atoms(coords, com, nAtoms_selection, atoms, debug):
+    axis_variation = np.std(coords, axis=0)
+    atomsSel = []
+    order_axis = np.argsort(axis_variation)
+    for ind in order_axis[-1:-3:-1]:
+        atomsSel.extend(atoms_closer_to_center(coords, ind, com, nAtoms_selection, atoms, debug))
+        # atomsSel.extend(atoms_further_to_center(coords, ind, com, nAtoms_selection, atoms, debug))
+    return atomsSel
 
 
 def main(snapshot, lig_resname, nAtoms_selection, debug, preprocess):
@@ -105,20 +174,7 @@ def main(snapshot, lig_resname, nAtoms_selection, debug, preprocess):
         coords = preprocess_coords(coords, com, debug)
         com = np.mean(coords, axis=0)
 
-    axis_variation = np.std(coords, axis=0)
-    atomsSel = []
-    for ind in np.argsort(axis_variation)[-1:-3:-1]:
-        comp_ind = np.array([i for i in xrange(3) if i != ind])
-        order = np.argsort(coords[:, ind])
-        imin = np.argmin(np.abs(coords[order[:nAtoms_selection]][:, comp_ind] - com[comp_ind]).sum(axis=1))
-        imax = np.argmin(np.abs(coords[order[-nAtoms_selection:]][:, comp_ind] - com[comp_ind]).sum(axis=1))
-        atomsSel.append(atoms[order[:nAtoms_selection]][imin])
-        atomsSel.append(atoms[order[-nAtoms_selection:]][imax])
-        if debug:
-            print "min", ['X', 'Y', 'Z'][ind]
-            print atoms[order[:nAtoms_selection]]
-            print "max", ['X', 'Y', 'Z'][ind]
-            print atoms[order[-nAtoms_selection:]]
+    atomsSel = get_atoms(coords, com, nAtoms_selection, atoms, debug)
     print "Atoms to select:"
     print " ".join(set(atomsSel))
 
