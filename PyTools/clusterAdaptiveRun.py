@@ -1,5 +1,6 @@
 import os
 import glob
+import shutil
 import numpy as np
 import argparse
 from AdaptivePELE.utilities import utilities
@@ -60,6 +61,7 @@ def get_centers_info(trajectoryFolder, trajectoryBasename, num_clusters, cluster
                     centersInfo[clusterInd]['minDist'] = dist[clusterInd]
                     centersInfo[clusterInd]['structure'] = (epoch, int(iTraj), nSnap)
                     centersInfo[clusterInd]['center'] = snapshotCoords
+    print snapshotCoords
     return centersInfo
 
 
@@ -73,6 +75,9 @@ def main(num_clusters, output_folder, ligand_resname, atom_ids):
     folders = utilities.get_epoch_folders(".")
     folders.sort(key=int)
 
+    if os.path.exists("discretized"):
+        # If there is a previous clustering, remove to cluster again
+        shutil.rmtree("discretized")
     clusteringObject = cluster.Cluster(num_clusters, trajectoryFolder,
                                        trajectoryBasename, alwaysCluster=False,
                                        stride=stride)
@@ -81,7 +86,7 @@ def main(num_clusters, output_folder, ligand_resname, atom_ids):
     clusterCenters = clusteringObject.clusterCenters
 
     centersInfo = get_centers_info(trajectoryFolder, trajectoryBasename, num_clusters, clusterCenters)
-    COMArray = [centersInfo[i]['center'] for i in xrange(num_clusters)]
+    COMArray = [centersInfo[i]['center'][:3] for i in xrange(num_clusters)]
     if output_folder is not None:
         outputFolder = os.path.join(output_folder, "")
         if not os.path.exists(outputFolder):
