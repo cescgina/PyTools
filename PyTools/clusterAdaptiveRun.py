@@ -13,8 +13,9 @@ def parseArgs():
     parser.add_argument("ligand_resname", type=str, help="Name of the ligand in the PDB")
     parser.add_argument("-atomId", nargs="*", default="", help="Atoms to use for the coordinates of the conformation, if not specified use the center of mass")
     parser.add_argument('-o', type=str, help="Output folder")
+    parser.add_argument('-f', type=str, help="Trajectory folder")
     args = parser.parse_args()
-    return args.nClusters, args.ligand_resname, args.atomId, args.o
+    return args.nClusters, args.ligand_resname, args.atomId, args.o, args.f
 
 
 def writePDB(pmf_xyzg, title="clusters.pdb"):
@@ -65,14 +66,14 @@ def get_centers_info(trajectoryFolder, trajectoryBasename, num_clusters, cluster
     return centersInfo
 
 
-def main(num_clusters, output_folder, ligand_resname, atom_ids):
-    extractCoords.main(folder_name=".", lig_resname=ligand_resname, non_Repeat=True, atom_Ids=atom_ids)
+def main(num_clusters, output_folder, ligand_resname, atom_ids, folder_name="."):
+    extractCoords.main(folder_name, lig_resname=ligand_resname, non_Repeat=True, atom_Ids=atom_ids)
     trajectoryFolder = "allTrajs"
     trajectoryBasename = "traj*"
     stride = 1
     clusterCountsThreshold = 0
 
-    folders = utilities.get_epoch_folders(".")
+    folders = utilities.get_epoch_folders(folder_name)
     folders.sort(key=int)
 
     if os.path.exists("discretized"):
@@ -97,5 +98,5 @@ def main(num_clusters, output_folder, ligand_resname, atom_ids):
     writeInitialStructures(centersInfo, outputFolder+"initial_%d.pdb")
 
 if __name__ == "__main__":
-    n_clusters, lig_name, atom_id, output = parseArgs()
-    main(n_clusters, output, lig_name, atom_id)
+    n_clusters, lig_name, atom_id, output, traj_folder = parseArgs()
+    main(n_clusters, output, lig_name, atom_id, folder_name=traj_folder)
