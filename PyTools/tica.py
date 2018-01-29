@@ -4,7 +4,7 @@ import pickle
 import numpy as np
 import argparse
 import itertools
-from AdaptivePELE.testing import cluster, extractCoords
+from AdaptivePELE.freeEnergies import cluster, extractCoords
 from AdaptivePELE.utilities import utilities
 from AdaptivePELE.atomset import atomset
 import pyemma.coordinates as coor
@@ -86,7 +86,7 @@ if __name__ == "__main__":
             for iTraj, traj in enumerate(projected[i*nTraj:(i+1)*nTraj]):
                 auxArr = np.zeros_like(traj[:, 0])
                 # Add a first column of indexes because it is the format that the
-                # cluster module of the testing package reads
+                # cluster module of the freeEnergie module reads
                 np.savetxt(os.path.join(trajectoryFolder, "%s_%d_%d.dat" % (trajectoryBasename[:-1], int(epoch), iTraj+1)), np.hstack((auxArr.reshape(-1, 1), traj)))
 
     clusteringObject = cluster.Cluster(numClusters, trajectoryFolder,

@@ -4,7 +4,7 @@ import shutil
 import numpy as np
 import argparse
 from AdaptivePELE.utilities import utilities
-from AdaptivePELE.testing import cluster, extractCoords
+from AdaptivePELE.freeEnergies import cluster, extractCoords
 
 
 def parseArgs():

@@ -1,8 +1,8 @@
 import os
 import glob
 import numpy as np
-from AdaptivePELE.testing import estimateDG
-from AdaptivePELE.testing import cluster
+from AdaptivePELE.freeEnergies import estimateDG
+from AdaptivePELE.freeEnergies import cluster
 import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 

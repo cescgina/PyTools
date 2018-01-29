@@ -3,7 +3,7 @@ import os
 import glob
 import argparse
 import shutil
-from AdaptivePELE.testing import cluster
+from AdaptivePELE.freeEnergies import cluster
 from AdaptivePELE.utilities import utilities
 
 

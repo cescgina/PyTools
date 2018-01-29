@@ -1,6 +1,6 @@
 import numpy as np
 import os
-from AdaptivePELE.testing import estimate
+from AdaptivePELE.freeEnergies import estimate
 from AdaptivePELE.utilities import utilities
 import pyemma.plots as mplt
 import matplotlib.pyplot as plt
