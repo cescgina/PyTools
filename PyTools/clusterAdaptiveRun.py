@@ -13,7 +13,7 @@ def parseArgs():
     parser.add_argument("ligand_resname", type=str, help="Name of the ligand in the PDB")
     parser.add_argument("-atomId", nargs="*", default="", help="Atoms to use for the coordinates of the conformation, if not specified use the center of mass")
     parser.add_argument('-o', type=str, help="Output folder")
-    parser.add_argument('-f', type=str, help="Trajectory folder")
+    parser.add_argument('-f', type=str, default=".", help="Trajectory folder")
     args = parser.parse_args()
     return args.nClusters, args.ligand_resname, args.atomId, args.o, args.f
 
