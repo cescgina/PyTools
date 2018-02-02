@@ -21,11 +21,13 @@ def parse_arguments():
     parser.add_argument("-stride", type=int, default=1, help="Stride, e.g. select one conformation out of every x, default 1, that is take all")
     parser.add_argument("-atomId", type=str, default="", help="Atoms to user for the coordinates of the conformation, if not specified use the center of mass")
     parser.add_argument("-s", "-savingFreq", type=int, default=1, help="Saving frequency of PELE simulation")
+    parser.add_argument("-t", "-trajectoryName", type=str, default="trajectory", help="Name of the trajectory files, e.g for trajectory_1.pdb the name is trajectory")
+    parser.add_argument("-r", "-reportName", type=str, default="report", help="Name of the report files, e.g for report_1.pdb the name is report")
     args = parser.parse_args()
-    return args.metricCol, args.ligand_resname, args.nTraj, args.filter, args.stride, args.atomId, args.s
+    return args.metricCol, args.ligand_resname, args.nTraj, args.filter, args.stride, args.atomId, args.s, args.t, args.r
 
 
-def main(metricCol, lig_resname, nTrajs, filter_val, stride, atomId, saving_frequency):
+def main(metricCol, lig_resname, nTrajs, filter_val, stride, atomId, saving_frequency, trajectory_name, report_name):
     folders = utilities.get_epoch_folders(".")
     data = []
     minMetric = 1e6
@@ -33,10 +35,10 @@ def main(metricCol, lig_resname, nTrajs, filter_val, stride, atomId, saving_freq
     for epoch in folders:
         print "Processing epoch %s" % epoch
         for iTraj in xrange(1, nTrajs):
-            report = np.loadtxt("%s/report_%d" % (epoch, iTraj))
+            report = np.loadtxt("%s/%s_%d" % (epoch, report_name, iTraj))
             if len(report.shape) < 2:
                 report = report[np.newaxis, :]
-            snapshots = utilities.getSnapshots("%s/trajectory_%d.pdb" % (epoch, iTraj))
+            snapshots = utilities.getSnapshots("%s/%s_%d.pdb" % (epoch, trajectory_name, iTraj))
             for i, snapshot in enumerate(itertools.islice(snapshots, 0, None, stride)):
                 report_line = i * stride * saving_frequency
                 data.append(get_coords(snapshot, atomId, lig_resname) + [report[report_line, metricCol]])
@@ -61,5 +63,5 @@ def main(metricCol, lig_resname, nTrajs, filter_val, stride, atomId, saving_freq
             fw.write("{:s} {:s} {:s} {:s} {:s} {:s} {:s} {:s}\n".format(*tuple(info)))
 
 if __name__ == "__main__":
-    metric_col, ligand, n_trajs, filter_value, stride_val, atom_ids, save_freq = parse_arguments()
-    main(metric_col, ligand, n_trajs, filter_value, stride_val, atom_ids, save_freq)
+    metric_col, ligand, n_trajs, filter_value, stride_val, atom_ids, save_freq, traj_name, rep_name = parse_arguments()
+    main(metric_col, ligand, n_trajs, filter_value, stride_val, atom_ids, save_freq, traj_name, rep_name)

@@ -62,7 +62,6 @@ def get_centers_info(trajectoryFolder, trajectoryBasename, num_clusters, cluster
                     centersInfo[clusterInd]['minDist'] = dist[clusterInd]
                     centersInfo[clusterInd]['structure'] = (epoch, int(iTraj), nSnap)
                     centersInfo[clusterInd]['center'] = snapshotCoords
-    print snapshotCoords
     return centersInfo
 
 
