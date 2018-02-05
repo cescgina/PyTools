@@ -12,8 +12,8 @@ def parse_arguments():
     parser.add_argument("resname", help="Ligand resname in the pdb")
     parser.add_argument("native", help="Path to native structure")
     parser.add_argument("initial", help="Path to the initial structures")
-    parser.add_argument("-ul", "-upperLim", type=int, default=10, help="Upper RMSD limit to native structure")
-    parser.add_argument("-ll", "-lowerLim", type=int, default=0, help="Lower RMSD limit to native structure")
+    parser.add_argument("-ul", "-upperLim", type=int, default=10, help="Upper RMSD limit to native structure, default 10")
+    parser.add_argument("-ll", "-lowerLim", type=int, default=0, help="Lower RMSD limit to native structure, default 0")
     args = parser.parse_args()
     return args.resname, args.native, args.initial, args.ul, args.ll
 

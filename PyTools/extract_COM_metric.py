@@ -21,8 +21,8 @@ def parse_arguments():
     parser.add_argument("-stride", type=int, default=1, help="Stride, e.g. select one conformation out of every x, default 1, that is take all")
     parser.add_argument("-atomId", type=str, default="", help="Atoms to user for the coordinates of the conformation, if not specified use the center of mass")
     parser.add_argument("-s", "-savingFreq", type=int, default=1, help="Saving frequency of PELE simulation")
-    parser.add_argument("-t", "-trajectoryName", type=str, default="trajectory", help="Name of the trajectory files, e.g for trajectory_1.pdb the name is trajectory")
-    parser.add_argument("-r", "-reportName", type=str, default="report", help="Name of the report files, e.g for report_1.pdb the name is report")
+    parser.add_argument("-t", "-trajectoryName", type=str, default="trajectory", help="Name of the trajectory files, e.g for trajectory_1.pdb the name is trajectory, default is trajectory")
+    parser.add_argument("-r", "-reportName", type=str, default="report", help="Name of the report files, e.g for report_1.pdb the name is report, default is report")
     args = parser.parse_args()
     return args.metricCol, args.ligand_resname, args.nTraj, args.filter, args.stride, args.atomId, args.s, args.t, args.r
 
