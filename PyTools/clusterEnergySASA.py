@@ -104,7 +104,7 @@ def main(n_clusters, output_folder, SASAColumn, norm_energy, num_bins,
         kmeans = KMeans(n_clusters=n_clusters).fit(points[:, :2])
         title = "clusters_%d_energy_SASA.pdb"
     else:
-        print "Clustering using ligadn coordinates"
+        print "Clustering using ligand coordinates"
         kmeans = KMeans(n_clusters=n_clusters).fit(points[:, 5:8])
         title = "clusters_%d_energy_SASA_coords.pdb"
     centers_energy = []
