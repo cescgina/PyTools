@@ -1,3 +1,6 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import range
+from io import open
 import numpy as np
 import glob
 import os
@@ -100,11 +103,11 @@ def main(n_clusters, output_folder, SASAColumn, norm_energy, num_bins,
         points[:, 0] /= energyMax
 
     if cluster_energy:
-        print "Clustering using energy and SASA"
+        print("Clustering using energy and SASA")
         kmeans = KMeans(n_clusters=n_clusters).fit(points[:, :2])
         title = "clusters_%d_energy_SASA.pdb"
     else:
-        print "Clustering using ligand coordinates"
+        print("Clustering using ligand coordinates")
         kmeans = KMeans(n_clusters=n_clusters).fit(points[:, 5:8])
         title = "clusters_%d_energy_SASA_coords.pdb"
     centers_energy = []
@@ -124,7 +127,7 @@ def main(n_clusters, output_folder, SASAColumn, norm_energy, num_bins,
     writePDB(centers_coords, os.path.join(outputFolder, title % n_clusters))
     if plots:
         plt.scatter(points[:, 1], points[:, 0], c=kmeans.labels_, alpha=0.5)
-        plt.scatter(centers_energy[:, 1], centers_energy[:, 0], c=range(n_clusters), marker='x', s=56, zorder=1)
+        plt.scatter(centers_energy[:, 1], centers_energy[:, 0], c=list(range(n_clusters)), marker='x', s=56, zorder=1)
         plt.xlabel("SASA")
         if norm_energy:
             plt.ylabel("Energy (normalized)")
@@ -135,5 +138,5 @@ def main(n_clusters, output_folder, SASAColumn, norm_energy, num_bins,
         plt.show()
 
 if __name__ == "__main__":
-    nClusters, ligand_resname, atomId, output, traj_folder, SASA, normal_energy, n_bins, percent, plot, traj_Basename, cluster_energy = parseArgs()
-    main(nClusters, output, SASA, normal_energy, n_bins, percent, plot, atomId, traj_folder, traj_Basename, cluster_energy)
+    nClusters, ligand_resname, atomId, output, traj_folder, SASA, normal_energy, n_bins, percent, plot, traj_Basename, cluster_energy_ = parseArgs()
+    main(nClusters, output, SASA, normal_energy, n_bins, percent, plot, atomId, traj_folder, traj_Basename, cluster_energy_)

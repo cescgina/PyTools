@@ -1,3 +1,6 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import range
+from io import open
 import numpy as np
 import os
 import argparse
@@ -28,7 +31,7 @@ if not os.path.exists(output_folder):
 filename = "conformation_data.dat"
 if not os.path.exists(filename):
     raise IOError("File conformation_data.dat not found, please be sure to run extract_COM_metric.py before this script")
-print "Selected names: ", ' '.join(names)
+print("Selected names: ", ' '.join(names))
 with open(filename) as f:
     f.readline()
     for line in f:
@@ -37,7 +40,7 @@ with open(filename) as f:
             continue
         epoch, iTraj, nSnap = line[1:4]
         report = np.loadtxt("%s/report_%s" % (epoch, iTraj))
-        print line[0], "=>", "epoch %s, trajectory %s, snapshot %s" % tuple(line[1:4]), "metric", report[int(nSnap), metricCol]
+        print(line[0], "=>", "epoch %s, trajectory %s, snapshot %s" % tuple(line[1:4]), "metric", report[int(nSnap), metricCol])
         snapshots = utilities.getSnapshots("%s/%s_%s.pdb" % (epoch, traj_name, iTraj))
         with open(output_folder+"conf_%s_%s_%s.pdb" % (epoch, iTraj, nSnap), "w") as fw:
             fw.write(snapshots[int(nSnap)])

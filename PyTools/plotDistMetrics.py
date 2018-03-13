@@ -1,3 +1,6 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import range
+from io import open
 import numpy as np
 import os
 import scipy.optimize as optim
@@ -30,8 +33,8 @@ metricInd = 4
 labels = ["TE", "RMSD", "BE", "SASA"]
 plots = True
 for folder in folders[10:]:
-    print ""
-    print "Epoch", folder
+    print("")
+    print("Epoch", folder)
     summary = np.loadtxt(folder+"/clustering/summary.txt")
     end_cluster = int(summary[-1, 0])+1
     # metrics = [cl.metrics[3:] for cl in cl_object.clusters.clusters[first_cluster:end_cluster]]
@@ -42,9 +45,9 @@ for folder in folders[10:]:
     mean = np.mean(metrics, axis=1)
     median = np.median(metrics, axis=1)
     std = np.std(metrics, axis=1)
-    print "Mean", mean
-    print "Median", median
-    print "Standard deviation", std
+    print("Mean", mean)
+    print("Median", median)
+    print("Standard deviation", std)
     # Identify least populated clusters
     # population = [cl.elements for cl in cl_object.clusters.clusters[:end_cluster]]
     population = summary[:, 1]
@@ -66,9 +69,9 @@ for folder in folders[10:]:
     rewProv = np.abs(metrics-mean[:, np.newaxis])/std[:, np.newaxis]
 
     metrics_dispersion = np.abs(metrics-mean[:, np.newaxis]).sum(axis=1)
-    print "Accumulated dispersion", metrics_dispersion
+    print("Accumulated dispersion", metrics_dispersion)
     metrics_scale = metrics_dispersion/std
-    print "Unweighted reward", metrics_scale
+    print("Unweighted reward", metrics_scale)
     rewardsEvol.append(metrics_scale)
     # constraints so the weights have values between 0 and 1
     cons = ({'type': 'eq', 'fun': lambda x: np.array(x.sum()-1)})
@@ -83,7 +86,7 @@ for folder in folders[10:]:
 
     optimResult = optim.minimize(reward, weights, args=(rewProv,), method="SLSQP", constraints=cons, bounds=bounds)
     weights = optimResult.x
-    print "Weights", weights
+    print("Weights", weights)
     weightsEvol.append(weights)
     if plots:
         plt.show()

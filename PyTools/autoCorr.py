@@ -1,3 +1,6 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import range
+from io import open
 import os
 import glob
 import numpy as np
@@ -42,7 +45,7 @@ def __cleanupFiles(trajWildcard, cleanupClusterCenters=True):
     if cleanupClusterCenters:
         __rmFiles("discretized/clusterCenter*")
 
-lagtimes = range(1, 200, 20)
+lagtimes = list(range(1, 200, 20))
 nLags = len(lagtimes)
 nclusters = 100
 
@@ -81,13 +84,13 @@ if not os.path.exists("autoCorr.npy"):
         N += Nt
         for il, lagtime in enumerate(lagtimes):
             M[il] += Nt-lagtime
-            for i in xrange(Nt-lagtime):
+            for i in range(Nt-lagtime):
                 autoCorr[traj[i], il] += (traj[i] == traj[i+lagtime])
                 C[traj[i], il] += 1
                 Ci[traj[i], il] += 1
                 if i > lagtime:
                     Cf[traj[i], il] += 1
-            for j in xrange(Nt-lagtime, Nt):
+            for j in range(Nt-lagtime, Nt):
                 C[traj[j], il] += 1
                 Cf[traj[j], il] += 1
 
@@ -105,20 +108,20 @@ clusterCenters = np.loadtxt("clusterCenters_2.dat")
 writePDB(clusterCenters, autoCorr[:,-1])
 # plt.imshow(autoCorr, extent=[0, lagtimes[-1], 0, nclusters])
 # plt.colorbar()
-print "Clusters with more than 0.2 autocorrelation"
+print("Clusters with more than 0.2 autocorrelation")
 size2 = np.where(autoCorr[:,-1] > 0.2)[0].size
-print size2, size2 / float(nclusters)
-print "Clusters with more than 0.1 autocorrelation"
+print(size2, size2 / float(nclusters))
+print("Clusters with more than 0.1 autocorrelation")
 size1 = np.where(autoCorr[:,-1] > 0.1)[0].size
-print size1, size1 / float(nclusters)
+print(size1, size1 / float(nclusters))
 threshold = 0.2
 
 if threshold < 1:
     filtered = np.where(autoCorr[:,-1] > threshold)[0]
-    print filtered
-    print autoCorr[filtered,-1]
+    print(filtered)
+    print(autoCorr[filtered,-1])
 else:
-    filtered = range(nclusters)
+    filtered = list(range(nclusters))
 axes = plt.plot(lagtimes, autoCorr.T[:,filtered])
 [ax.set_label("Cluster %d" % i) for i, ax in zip(filtered, axes)]
 plt.legend()

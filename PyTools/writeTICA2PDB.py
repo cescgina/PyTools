@@ -1,3 +1,5 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import range
 import glob
 import argparse
 import numpy as np
@@ -39,6 +41,6 @@ if __name__ == "__main__":
     utilities.makeFolder("tica_pdb")
     nConf, nTICS = COM_tica.shape
     ind = [0, 1, 2, 0]
-    for i in xrange(3, nTICS):
+    for i in range(3, nTICS):
         ind[-1] = i
         utilities.write_PDB_clusters(COM_tica[:, ind], title="tica_pdb/tica_%d.pdb" % (i-2), use_beta=True)

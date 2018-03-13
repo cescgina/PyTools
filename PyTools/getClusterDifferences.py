@@ -1,3 +1,6 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import range
+from io import open
 import numpy as np
 import glob
 import argparse
@@ -26,7 +29,7 @@ def main(ligand, clusters_file, n_conformations):
     distances = []
     distance_mean = []
     cl_ind = []
-    for cl in xrange(numClusters):
+    for cl in range(numClusters):
         conf_files = glob.glob("cluster_%d/allStructures/conf_*.pdb" % cl)
         sizes.append(len(conf_files))
         positions = np.loadtxt("cluster_%d/positions.dat" % cl)[:, 1:]

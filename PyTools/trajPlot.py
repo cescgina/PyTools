@@ -1,3 +1,5 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import range
 import numpy as np
 import glob
 import matplotlib.pyplot as plt
@@ -26,7 +28,7 @@ files = glob.glob("allTrajs/traj*")
 files.sort(key=sort_split_by_numbers)
 n_trajs = len(files)
 n = n_trajs/nTraj + bool(n_trajs % nTraj)
-for i in xrange(n):
+for i in range(n):
     fig = plt.figure()
     ax = Axes3D(fig)
     ax.set_ylabel('y')

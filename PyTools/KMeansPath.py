@@ -1,3 +1,6 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import range
+from io import open
 import numpy as np
 import os
 from sklearn.cluster import KMeans
@@ -56,12 +59,12 @@ def first_cluster_as_representative(model):
             continue
         else:
             final_clusters[cluster] = i
-    return [final_clusters[j] for j in xrange(len(final_clusters))]
+    return [final_clusters[j] for j in range(len(final_clusters))]
 
 
 def most_populated_cluster_as_representative(model, clusters_population, n_clusters):
     final_clusters = []
-    for cl_num in xrange(n_clusters):
+    for cl_num in range(n_clusters):
         cluster_elements = np.where(model.labels_ == cl_num)
         index = np.argmax(clusters_population[cluster_elements])
         final_clusters.append(cluster_elements[0][index])
@@ -70,7 +73,7 @@ def most_populated_cluster_as_representative(model, clusters_population, n_clust
 
 def closest_cluster_as_representative(model, n_clusters, COM):
     final_clusters = []
-    for cl_num in xrange(n_clusters):
+    for cl_num in range(n_clusters):
         cluster_elements = np.where(model.labels_ == cl_num)
         index = np.argmin(np.sqrt((model.cluster_centers_[cl_num]-COM[cluster_elements, :])**2).sum(axis=2))
         final_clusters.append(cluster_elements[0][index])
@@ -94,15 +97,15 @@ def calculate_intercluster_distance(clustering, model, cluster_centers, RMSDCalc
 
 
 n_clusters, clustering_object, output = parseArgs()
-print "Reading clustering object"
+print("Reading clustering object")
 cluster_object = clu.readClusteringObject(clustering_object)
 clusters = [cl.pdb.getCOM() for cl in cluster_object.clusterIterator()]
 clusters_pop = np.array([cl.elements for cl in cluster_object.clusterIterator()])
 clusters_contacts = np.array([cl.contacts for cl in cluster_object.clusterIterator()])
 COMArray = np.array(clusters)
-print "Number of adaptive clusters", len(clusters)
+print("Number of adaptive clusters", len(clusters))
 model = KMeans(n_clusters=n_clusters)
-print "Reclustering"
+print("Reclustering")
 model.fit(clusters)
 
 # RMSDCalc = RMSDCalculator.RMSDCalculator()
@@ -110,8 +113,8 @@ model.fit(clusters)
 # clusters_pop = most_populated_cluster_as_representative(model, clusters_pop, n_clusters)
 # distances_first = calculate_intercluster_distance(cluster_object, model, clusters_first, RMSDCalc)
 # distances_pop = calculate_intercluster_distance(cluster_object, model, clusters_pop, RMSDCalc)
-# print "Total intercluster distance first", sum(distances_first)
-# print "Total intercluster distance population", sum(distances_pop)
+# print("Total intercluster distance first", sum(distances_first))
+# print("Total intercluster distance population", sum(distances_pop))
 #
 # plt.plot(distances_first, marker='x', label="First clusters")
 # plt.plot(distances_pop, marker='o', label="Most populated clusters")

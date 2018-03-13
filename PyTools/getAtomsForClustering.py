@@ -1,4 +1,7 @@
 """ Automatically choose four atoms to improve the clustering"""
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import range
+from io import open
 import argparse
 import numpy as np
 from AdaptivePELE.atomset import atomset
@@ -64,7 +67,7 @@ def get_direction_x(coordinates):
 
 
 def preprocess_coords(coords, com, debug):
-    print "Preprocessing ligand coordinates"
+    print("Preprocessing ligand coordinates")
     if debug:
         fig = plt.figure()
         ax = Axes3D(fig)
@@ -146,12 +149,12 @@ def atoms_further_to_center(coords, ind, com, nAtoms_selection, atoms, debug):
 
 
 def log_results_debug(ind, coords, order, nAtoms_selection, com, atoms):
-    print "min", ['X', 'Y', 'Z'][ind]
-    print np.abs(coords[order[:nAtoms_selection]] - com).sum(axis=1)
-    print atoms[order[:nAtoms_selection]]
-    print "max", ['X', 'Y', 'Z'][ind]
-    print np.abs(coords[order[-nAtoms_selection:]] - com).sum(axis=1)
-    print atoms[order[-nAtoms_selection:]]
+    print("min", ['X', 'Y', 'Z'][ind])
+    print(np.abs(coords[order[:nAtoms_selection]] - com).sum(axis=1))
+    print(atoms[order[:nAtoms_selection]])
+    print("max", ['X', 'Y', 'Z'][ind])
+    print(np.abs(coords[order[-nAtoms_selection:]] - com).sum(axis=1))
+    print(atoms[order[-nAtoms_selection:]])
 
 
 def get_atoms(coords, com, nAtoms_selection, atoms, debug):
@@ -175,8 +178,8 @@ def main(snapshot, lig_resname, nAtoms_selection, debug, preprocess):
         com = np.mean(coords, axis=0)
 
     atomsSel = get_atoms(coords, com, nAtoms_selection, atoms, debug)
-    print "Atoms to select:"
-    print " ".join(set(atomsSel))
+    print("Atoms to select:")
+    print(" ".join(set(atomsSel)))
 
 if __name__ == "__main__":
     conf, ligand, n_atoms, set_debug, set_preprocess = parse_arguments()

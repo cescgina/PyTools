@@ -1,3 +1,6 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import range
+from io import open
 import numpy as np
 import os
 from AdaptivePELE.freeEnergies import estimate
@@ -16,7 +19,7 @@ def getMinCluster(pdbFile):
             try:
                 beta = float(lineContents[-2])
             except:
-                print lineContents
+                print(lineContents)
             cl = int(lineContents[1])
             coords = map(float, [lineContents[-6], lineContents[-5], lineContents[-4]])
             if beta < minVal:
@@ -32,11 +35,11 @@ MSM_object = estimate.MSM()
 MSM_object.lagtimes = [1, 50, 100, 200, 400, 600, 800, 1000]
 for tau, k in params:
     path = "%dlag/%dcl/MSM_0/"
-    print "********"
-    print path % (tau, k)
-    for i in xrange(10):
+    print("********")
+    print(path % (tau, k))
+    for i in range(10):
         temp_path = path % (tau, k)
-        print "Plotting validity checks for run %d" % i
+        print("Plotting validity checks for run %d" % i)
         MSM = utilities.readClusteringObject(temp_path + "MSM_object_%d.pkl" % i)
         assert len(MSM.dtrajs_full) == len(MSM.dtrajs_active)
         MSM_object.MSM_object = MSM

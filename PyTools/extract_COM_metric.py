@@ -1,6 +1,9 @@
 """ Write a pdb with each conformation and the specific metric as beta value,
     also write a file with the name in the pdb, the conformation info and the
     COM"""
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import range
+from io import open
 import numpy as np
 import argparse
 import itertools
@@ -33,8 +36,8 @@ def main(metricCol, lig_resname, nTrajs, filter_val, stride, atomId, saving_freq
     minMetric = 1e6
     confData = []
     for epoch in folders:
-        print "Processing epoch %s" % epoch
-        for iTraj in xrange(1, nTrajs):
+        print("Processing epoch %s" % epoch)
+        for iTraj in range(1, nTrajs):
             report = np.loadtxt("%s/%s_%d" % (epoch, report_name, iTraj))
             if len(report.shape) < 2:
                 report = report[np.newaxis, :]
@@ -54,7 +57,7 @@ def main(metricCol, lig_resname, nTrajs, filter_val, stride, atomId, saving_freq
         namesPDB = utilities.write_PDB_clusters(data_filter, title="cluster_metric.pdb", use_beta=True)
     else:
         namesPDB = utilities.write_PDB_clusters(data, title="cluster_metric.pdb", use_beta=True)
-    print "Min value for metric", minMetric, namesPDB[minInd]
+    print("Min value for metric", minMetric, namesPDB[minInd])
 
     with open("conformation_data.dat", "w") as fw:
         fw.write("PDB name      Epoch Trajectory   Snapshot   COM x       y       x     Metric\n")

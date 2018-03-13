@@ -1,3 +1,6 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import range
+from io import open
 import glob
 import argparse
 from AdaptivePELE.atomset import RMSDCalculator, atomset
@@ -28,7 +31,7 @@ def main(lig_resname, native_path, initial_path, up_lim, low_lim):
         initialPDB.initialise(conf, resname=lig_resname)
         if low_lim < RMSDCalc.computeRMSD(nativePDB, initialPDB) < up_lim:
             filtered.append(conf)
-    print " ".join(filtered)
+    print(" ".join(filtered))
 
 
 if __name__ == "__main__":

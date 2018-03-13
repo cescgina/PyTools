@@ -1,3 +1,6 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import range
+from io import open
 import numpy as np
 import os
 import glob
@@ -32,7 +35,7 @@ def main(ligand, clusters_file, conf_folder):
     trajBasename = "coord*"
     epoch_folders = utilities.get_epoch_folders(conf_folder)
     numClusters = cluster_centers.shape[0]
-    coordinates = [[] for cl in xrange(numClusters)]
+    coordinates = [[] for cl in range(numClusters)]
     for it in epoch_folders:
         files = glob.glob(conf_folder+"%s/extractedCoordinates/coord*" % it)
         for f in files:
@@ -42,12 +45,12 @@ def main(ligand, clusters_file, conf_folder):
                                        alwaysCluster=False, stride=stride)
     clusteringObject.clusterTrajectories()
     clusteringObject.eliminateLowPopulatedClusters(clusterCountsThreshold)
-    for i in xrange(numClusters):
+    for i in range(numClusters):
         if not os.path.exists("cluster_%d" % i):
             os.makedirs("cluster_%d/allStructures" % i)
     dtrajs_files = glob.glob("discretized/*.disctraj")
     for dtraj in dtrajs_files:
-        print dtraj
+        print(dtraj)
         traj = np.loadtxt(dtraj)
         epoch, traj_num = map(int, os.path.splitext(dtraj)[0].split("_", 3)[1:])
         trajPositions = np.loadtxt(trajFolder+"/coord_%d_%d.dat" % (epoch, traj_num))
@@ -57,7 +60,7 @@ def main(ligand, clusters_file, conf_folder):
             filename = "cluster_%d/allStructures/conf_%d_%d_%d.pdb" % (cluster_num, epoch, traj_num, nSnap)
             with open(filename, "w") as fw:
                 fw.write(snapshots[nSnap])
-    for cl in xrange(numClusters):
+    for cl in range(numClusters):
         np.savetxt("cluster_%d/positions.dat" % cl, coordinates[cl])
 
 if __name__ == "__main__":

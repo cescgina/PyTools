@@ -1,3 +1,4 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
 import numpy as np
 import argparse
 
@@ -10,20 +11,20 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument("-v", action="store_true", help="Verbose output")
     args = parser.parse_args()
-    return  args.v
+    return args.v
 
 
 if __name__ == "__main__":
     verbose = parse_arguments()
-    iterations = [(25, 100), (50, 100), (100, 100), (200, 100), (400, 100), 
-                  (25, 200), (50, 200), (100, 200), (200, 200), (400, 200), 
+    iterations = [(25, 100), (50, 100), (100, 100), (200, 100), (400, 100),
+                  (25, 200), (50, 200), (100, 200), (200, 200), (400, 200),
                   (25, 400), (50, 400), (100, 400), (200, 400), (400, 400)]
     for k, cl in iterations:
         try:
             dG = np.loadtxt("%dlag/%dcl/results.txt" % (k, cl))
-        except:
+        except (IOError, OSError):
             continue
         if verbose:
-            print k, cl, " +- ".join(map(str, dG[1:3]))
+            print(k, cl, " +- ".join(map(str, dG[1:3])))
         else:
-            print " +- ".join(map(str, dG[1:3]))
+            print(" +- ".join(map(str, dG[1:3])))

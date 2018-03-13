@@ -1,3 +1,6 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import range
+from io import open
 import os
 import glob
 import pickle
@@ -112,11 +115,11 @@ if __name__ == "__main__":
             projectedTraj = tica.transform(trajLoad[::stride_conformations])[:, :nTICs]
             projectedUniq.append(projectedTraj)
             np.savetxt("tica_COM/traj_%s_%d.dat" % (epoch, trajNum), np.hstack((np.array(trajCOM), projectedTraj)),
-                       header="COM coordinates x\ty\tz\t TICA coordinates\t"+"\t".join(["TICA %d" % tic for tic in xrange(nTICs)]) + "\n")
+                       header="COM coordinates x\ty\tz\t TICA coordinates\t"+"\t".join(["TICA %d" % tic for tic in range(nTICs)]) + "\n")
 
     clusterCenters = clusteringObject.clusterCenters
     dtrajs = clusteringObject.assignNewTrajectories(projectedUniq)
-    centersInfo = {x: {"structure": None, "minDist": 1e6} for x in xrange(numClusters)}
+    centersInfo = {x: {"structure": None, "minDist": 1e6} for x in range(numClusters)}
     for i, epoch in enumerate(folders):
         for iTraj, traj in enumerate(projectedUniq[i*nTraj:(i+1)*nTraj]):
             for nSnap, snapshot in enumerate(traj):
@@ -137,21 +140,21 @@ if __name__ == "__main__":
         pdb_object.initialise(snapshots[snap], resname=ligand_resname)
         pdb_object.writePDB("clusterCenters/cluster_%d.pdb" % clusterNum)
 
-    distances = [[nC, centersInfo[nC]['minDist']] for nC in xrange(numClusters)]
+    distances = [[nC, centersInfo[nC]['minDist']] for nC in range(numClusters)]
     np.savetxt("clusterCenters/clusterDistances_%dcl_%dTICs.dat" % (numClusters, nTICs), distances)
     utilities.write_PDB_clusters(COM_list, "clusterCenters/clustersCenters_%dcl_%dTICs.pdb" % (numClusters, nTICs))
     plotTICA = True
     if plotTICA:
         plt.rcParams.update({'legend.markerscale': 10})
         # coords = np.array(projected)
-        states = range(nTICs)
+        states = list(range(nTICs))
         for state in states:
             plt.figure()
             # plt.plot(coords[:,:,state].flatten(), 'x', markersize=0.5, label="Tica %d" % (state+1))
             plotNum = 0
             for traj in projected:
                 try:
-                    plt.plot(range(plotNum, plotNum+traj.shape[0]), traj[:, state], 'x', markersize=0.5, color="r")
+                    plt.plot(list(range(plotNum, plotNum+traj.shape[0])), traj[:, state], 'x', markersize=0.5, color="r")
                     plotNum += traj.shape[0]
                     # plt.plot(traj[:, 2], traj[:, state], 'x', markersize=0.5, color="r")
                 except IndexError as e:

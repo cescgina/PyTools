@@ -1,3 +1,6 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import range
+from io import open
 import os
 import glob
 import shutil
@@ -45,7 +48,7 @@ def writeInitialStructures(centers_info, filename_template):
 
 
 def get_centers_info(trajectoryFolder, trajectoryBasename, num_clusters, clusterCenters):
-    centersInfo = {x: {"structure": None, "minDist": 1e6, "center": None} for x in xrange(num_clusters)}
+    centersInfo = {x: {"structure": None, "minDist": 1e6, "center": None} for x in range(num_clusters)}
 
     trajFiles = glob.glob(os.path.join(trajectoryFolder, trajectoryBasename))
     for traj in trajFiles:
@@ -57,7 +60,7 @@ def get_centers_info(trajectoryFolder, trajectoryBasename, num_clusters, cluster
             nSnap = snapshot[0]
             snapshotCoords = snapshot[1:]
             dist = np.sqrt(np.sum((clusterCenters-snapshotCoords)**2, axis=1))
-            for clusterInd in xrange(num_clusters):
+            for clusterInd in range(num_clusters):
                 if dist[clusterInd] < centersInfo[clusterInd]['minDist']:
                     centersInfo[clusterInd]['minDist'] = dist[clusterInd]
                     centersInfo[clusterInd]['structure'] = (epoch, int(iTraj), nSnap)
@@ -86,7 +89,7 @@ def main(num_clusters, output_folder, ligand_resname, atom_ids, folder_name=".")
     clusterCenters = clusteringObject.clusterCenters
 
     centersInfo = get_centers_info(trajectoryFolder, trajectoryBasename, num_clusters, clusterCenters)
-    COMArray = [centersInfo[i]['center'][:3] for i in xrange(num_clusters)]
+    COMArray = [centersInfo[i]['center'][:3] for i in range(num_clusters)]
     if output_folder is not None:
         outputFolder = os.path.join(output_folder, "")
         if not os.path.exists(outputFolder):

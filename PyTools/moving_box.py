@@ -1,3 +1,6 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import range
+from io import open
 import numpy as np
 import argparse
 import itertools
@@ -26,12 +29,12 @@ def main(metricCol, lig_resname, nTrajs, stride, atomId, saving_frequency):
     box_center = None
     templateLine = "HETATM%s    H BOX Z 501    %s%s%s  0.75%s            H  \n"
     for epoch in folders:
-        print "Processing epoch %s" % epoch
+        print("Processing epoch %s" % epoch)
         data = []
         confData = []
         maxEpoch = -1
         maxEpochCoords = None
-        for iTraj in xrange(1, nTrajs):
+        for iTraj in range(1, nTrajs):
             report = np.loadtxt("%s/report_%d" % (epoch, iTraj))
             if len(report.shape) < 2:
                 report = report[np.newaxis, :]
@@ -51,7 +54,7 @@ def main(metricCol, lig_resname, nTrajs, stride, atomId, saving_frequency):
         minMetric = data[minInd, -1]
         data[:, -1] -= minMetric
         utilities.write_PDB_clusters(data, title="epoch_%s.pdb" % epoch, use_beta=True)
-        print "Max value for metric", maxEpoch, maxEpochCoords
+        print("Max value for metric", maxEpoch, maxEpochCoords)
         with open("epoch_%s.pdb" % epoch, "a") as fa:
             fa.write("TER\n")
             serial = ("%d" % data.shape[0]).rjust(5)

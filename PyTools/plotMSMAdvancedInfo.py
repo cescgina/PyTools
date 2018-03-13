@@ -1,3 +1,6 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import range
+from io import open
 import os
 import numpy as np
 from AdaptivePELE.utilities import utilities
@@ -29,7 +32,7 @@ if not os.path.exists(outputFolder):
 
 GMRQfigures = {}
 for runFolder, minPos in zip(systems, minima):
-    print "Running from " + runFolder
+    print("Running from " + runFolder)
     for tau, k in iterations:
         if plotGMRQ:
             if tau not in GMRQfigures:
@@ -40,10 +43,10 @@ for runFolder, minPos in zip(systems, minima):
                 GMRQfigures[tau][1].set_xlabel("Number of states")
                 GMRQfigures[tau][1].set_ylabel("GMRQ")
         destFolder = os.path.join(runFolder, "%dlag/%dcl" % (tau, k))
-        print "Lagtime %d, clusters %d" % (tau, k)
+        print("Lagtime %d, clusters %d" % (tau, k))
         if not os.path.exists(destFolder+"/MSM_0/eigenvectors"):
             os.makedirs(destFolder+"/MSM_0/eigenvectors")
-        for i in xrange(nRuns):
+        for i in range(nRuns):
             titleVar = "%s, %dcl, %dlag, run %d" % (runFolder, k, tau, i)
             if plotGMRQ or plotEigenvectors:
                 msm_object = utilities.readClusteringObject(destFolder+"/MSM_0/MSM_object_%d.pkl" % i)
@@ -53,7 +56,7 @@ for runFolder, minPos in zip(systems, minima):
                 clusters = np.loadtxt(destFolder+"/MSM_0/clusterCenters_%d.dat" % i)
                 distance = np.linalg.norm(clusters-minPos, axis=1)
                 volume = np.loadtxt(os.path.join(runFolder, "%dlag" % tau, "%dcl" % k, "MSM_0", "volumeOfClusters_%d.dat" % i))
-                print "Total volume for system %s" % runFolder, volume.sum()
+                print("Total volume for system %s" % runFolder, volume.sum())
             if plotEigenvectors:
                 if clusters.size != msm_object.stationary_distribution.size:
                     mat = computeDeltaG.reestimate_transition_matrix(msm_object.count_matrix_full)
@@ -62,7 +65,7 @@ for runFolder, minPos in zip(systems, minima):
                 R, D, L = rdl_decomposition(mat)
                 figures = []
                 axes = []
-                for i in xrange((nEigenvectors-1)/4+1):
+                for i in range((nEigenvectors-1)/4+1):
                     f, axarr = plt.subplots(2, 2, figsize=(12, 12))
                     f.suptitle(titleVar)
                     figures.append(f)
