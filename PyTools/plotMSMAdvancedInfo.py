@@ -3,6 +3,8 @@ from builtins import range
 from io import open
 import os
 import numpy as np
+import argparse
+import itertools
 from AdaptivePELE.utilities import utilities
 from AdaptivePELE.freeEnergies import computeDeltaG
 from msmtools.analysis import rdl_decomposition
@@ -10,30 +12,52 @@ import matplotlib.pyplot as plt
 plt.style.use("ggplot")
 
 
-nEigenvectors = 4
-nRuns = 10
-m = 15
-outputFolder = "figures_eigenvectors_compare_1o3f"
-plotEigenvectors = False
-plotPMF = False
-plotGMRQ = True
-iterations = [(25, 100), (50, 100), (100, 100), (200, 100), (400, 100),
-              (25, 200), (50, 200), (100, 200), (200, 200), (400, 200),
-              (25, 400), (50, 400), (100, 400), (200, 400), (400, 400)]
-# iterations = [(400, 400), (400, 200), (400, 100)]
-# systems = ["1o3f_PELE_sampl_40_waters", "1o3f_PELE_sampl_40_alt_box", "1sqa_PELE_sampl_40"]
-# minima = np.array([[44.348, -3.041, 26.375]]*2+[[31.657, 5.141, 28.070]])
-# systems = ["1sqa_PELE_sampl_40"]
-# minima = np.array([[31.657, 5.141, 28.070]])
-systems = ["1o3f_PELE_sampl_40_waters"]
-minima = np.array([[44.348, -3.041, 26.375]])
-if not os.path.exists(outputFolder):
-    os.makedirs(outputFolder)
+def parse_arguments():
+    """
+        Create command-line interface
+    """
+    desc = "Plot information related to an MSM"
+    parser = argparse.ArgumentParser(description=desc)
+    parser.add_argument("-n", "--nEigen", type=int, default=4, help="Number of eigenvector to plot")
+    parser.add_argument("-c", "--clusters", type=int, nargs="*", required=True, help="Number of clusters to analyse")
+    parser.add_argument("-l", "--lagtimes", type=int, nargs="*", required=True, help="Lagtimes to analyse")
+    parser.add_argument("--minima", type=float, nargs="*", default=None, help="Coordinates of the minima")
+    parser.add_argument("--nRuns", type=int, default=1, help="Number of independent calculations to plot")
+    parser.add_argument("-o", default=None, help="Path of the folder where to store the plots")
+    parser.add_argument("-m", type=int, default=15, help="Number of eigenvalues to sum in the GMRQ")
+    parser.add_argument("--plotEigenvectors", action="store_true", help="Plot the eigenvectors")
+    parser.add_argument("--plotGMRQ", action="store_true", help="Plot the GMRQ")
+    parser.add_argument("--plotPMF", action="store_true", help="Plot the PMF")
+    parser.add_argument("--savePlots", action="store_true", help="Save the plots to disk")
+    parser.add_argument("--showPlots", action="store_true", help="Show the plots to screen")
+    parser.add_argument("--filter", type=int, nargs="*", default=None, help="Clusters to plot")
+    args = parser.parse_args()
+    return args.nEigen, args.clusters, args.lagtimes, args.nRuns, args.minima, args.o, args.m, args.plotEigenvectors, args.plotGMRQ, args.plotPMF, args.savePlots, args.showPlots, args.filter
 
-GMRQfigures = {}
-for runFolder, minPos in zip(systems, minima):
+
+def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plotPMF, clusters, lagtimes, minPos, save_plots, showPlots, filtered):
+    if save_plots and outputFolder is None:
+        outputFolder = "plots_MSM"
+        eigenPlots = os.path.join(outputFolder, "eigenvector_plots")
+        GMRQPlots = os.path.join(outputFolder, "GMRQ_plots")
+        PMFPlots = os.path.join(outputFolder, "PMF_plots")
+    if save_plots and not os.path.exists(outputFolder):
+        os.makedirs(outputFolder)
+    if filtered is not None:
+        filter_str = "_filtered"
+    else:
+        filter_str = ""
+    if plotEigenvectors and save_plots and not os.path.exists(eigenPlots):
+        os.makedirs(eigenPlots)
+    if plotGMRQ and save_plots and not os.path.exists(GMRQPlots):
+        os.makedirs(GMRQPlots)
+    if plotPMF and save_plots and not os.path.exists(PMFPlots):
+        os.makedirs(PMFPlots)
+    minPos = np.array(minPos)
+    runFolder = os.path.split(os.getcwd())[1]
+    GMRQfigures = {}
     print("Running from " + runFolder)
-    for tau, k in iterations:
+    for tau, k in itertools.product(lagtimes, clusters):
         if plotGMRQ:
             if tau not in GMRQfigures:
                 fig = plt.figure()
@@ -42,44 +66,60 @@ for runFolder, minPos in zip(systems, minima):
                 GMRQfigures[tau][0].suptitle("%s, %dlag" % (runFolder, tau))
                 GMRQfigures[tau][1].set_xlabel("Number of states")
                 GMRQfigures[tau][1].set_ylabel("GMRQ")
-        destFolder = os.path.join(runFolder, "%dlag/%dcl" % (tau, k))
+        destFolder = os.path.join("%dlag" % tau, "%dcl" % k)
         print("Lagtime %d, clusters %d" % (tau, k))
-        if not os.path.exists(destFolder+"/MSM_0/eigenvectors"):
-            os.makedirs(destFolder+"/MSM_0/eigenvectors")
+        if not os.path.exists(os.path.join(destFolder, "MSM_0", "eigenvectors")):
+            os.makedirs(os.path.join(destFolder, "MSM_0", "eigenvectors"))
         for i in range(nRuns):
             titleVar = "%s, %dcl, %dlag, run %d" % (runFolder, k, tau, i)
             if plotGMRQ or plotEigenvectors:
-                msm_object = utilities.readClusteringObject(destFolder+"/MSM_0/MSM_object_%d.pkl" % i)
+                msm_object = utilities.readClusteringObject(os.path.join(destFolder, "MSM_0", "MSM_object_%d.pkl" % i))
             if plotGMRQ:
                 GMRQfigures[tau][1].plot(k, np.sum(msm_object.eigenvalues()[:m]), 'x')
             if plotEigenvectors or plotPMF:
-                clusters = np.loadtxt(destFolder+"/MSM_0/clusterCenters_%d.dat" % i)
+                clusters = np.loadtxt(os.path.join(destFolder, "MSM_0", "clusterCenters_%d.dat" % i))
                 distance = np.linalg.norm(clusters-minPos, axis=1)
-                volume = np.loadtxt(os.path.join(runFolder, "%dlag" % tau, "%dcl" % k, "MSM_0", "volumeOfClusters_%d.dat" % i))
-                print("Total volume for system %s" % runFolder, volume.sum())
+                volume = np.loadtxt(os.path.join(destFolder, "MSM_0", "volumeOfClusters_%d.dat" % i))
+                print("Total volume for system %s, %s , run %d" % (runFolder, destFolder, i), volume.sum())
+                if filtered is not None:
+                    volume = volume[filtered]
+                    clusters = clusters[filtered]
+                    distance = distance[filtered]
             if plotEigenvectors:
                 if clusters.size != msm_object.stationary_distribution.size:
                     mat = computeDeltaG.reestimate_transition_matrix(msm_object.count_matrix_full)
                 else:
                     mat = msm_object.transition_matrix
-                R, D, L = rdl_decomposition(mat)
+                _, _, L = rdl_decomposition(mat)
                 figures = []
                 axes = []
-                for i in range((nEigenvectors-1)/4+1):
+                for i in range((nEigenvectors-1)//4+1):
                     f, axarr = plt.subplots(2, 2, figsize=(12, 12))
                     f.suptitle(titleVar)
                     figures.append(f)
                     axes.append(axarr)
 
                 for j, row in enumerate(L[:nEigenvectors]):
-                    axes[j/4][(j/2) % 2, j % 2].scatter(distance, row)
-                    axes[j/4][(j/2) % 2, j % 2].set_xlabel("Distance to minimum")
-                    axes[j/4][(j/2) % 2, j % 2].set_ylabel("Eigenvector %d" % (j+1))
-                    plt.savefig(os.path.join(outputFolder, "%s_eigenvector_%d.png" % (runFolder, j+1)))
-
+                    atomnames = utilities.getAtomNames(utilities.sign(row, tol=1e-4))
+                    pdb_filename = os.path.join(destFolder, "MSM_0", "eigenvectors", "eigen_%d_cl_%d_lag_%d_run_%d.pdb" % (j+1, k, tau, i))
+                    utilities.write_PDB_clusters(clusters, use_beta=False, elements=atomnames, title=pdb_filename)
+                    if filtered is not None:
+                        row = row[filtered]
+                    np.savetxt(os.path.join(destFolder, "MSM_0", "eigenvectors", "eigen_%d_cl_%d_lag_%d_run_%d%s.dat" % (j+1, k, tau, i, filter_str)), row)
+                    axes[j//4][(j//2) % 2, j % 2].scatter(distance, row)
+                    axes[j//4][(j//2) % 2, j % 2].set_xlabel("Distance to minimum")
+                    axes[j//4][(j//2) % 2, j % 2].set_ylabel("Eigenvector %d" % (j+1))
+                if save_plots:
+                    for fg in figures:
+                        fg.savefig(os.path.join(eigenPlots, "eigenvector_%d_run_%d_cl_%d_lag_%d%s.png" % (j+1, i, k, tau, filter_str)))
             if plotPMF:
-                data = np.loadtxt(os.path.join(runFolder, "%dlag" % tau, "%dcl" % k, "MSM_0", "pmf_xyzg_0.dat"))
+                data = np.loadtxt(os.path.join(destFolder, "MSM_0", "pmf_xyzg_%d.dat" % i))
                 g = data[:, -1]
+                if filtered is not None:
+                    g = g[filtered]
+                print("Clusters with less than 2 PMF:")
+                print(" ".join(map(str, np.where(g < 2)[0])))
+                print("")
                 f, axarr = plt.subplots(2, 2, figsize=(12, 12))
                 f.suptitle(titleVar)
                 axarr[1, 0].scatter(distance, g)
@@ -91,5 +131,14 @@ for runFolder, minPos in zip(systems, minima):
                 axarr[0, 1].set_ylabel("Volume")
                 axarr[0, 0].set_xlabel("PMF")
                 axarr[0, 0].set_ylabel("Volume")
-if plotEigenvectors or plotGMRQ or plotPMF:
-    plt.show()
+                if save_plots:
+                    f.savefig(os.path.join(PMFPlots, "pmf_run_%d_cl_%d_lag_%d%s.png" % (i, k, tau, filter_str)))
+    if save_plots and plotGMRQ:
+        for el in GMRQfigures:
+            el.savefig(os.path.join(GMRQPlots, "GMRQ_lag_%d.png" % tau))
+    if showPlots and (plotEigenvectors or plotGMRQ or plotPMF):
+        plt.show()
+
+if __name__ == "__main__":
+    n_eigen, clusters_list, lagtime_list, runs, minim, output, size_m, plotEigen, plotGMRQs, plotPMFs, write_plots, show_plots, filter_clusters = parse_arguments()
+    main(n_eigen, runs, size_m, output, plotEigen, plotGMRQs, plotPMFs, clusters_list, lagtime_list, minim, write_plots, show_plots, filter_clusters)
