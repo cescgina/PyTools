@@ -24,7 +24,7 @@ def parse_arguments():
     parser.add_argument("--minima", type=float, nargs="*", default=None, help="Coordinates of the minima")
     parser.add_argument("--nRuns", type=int, default=1, help="Number of independent calculations to plot")
     parser.add_argument("-o", default=None, help="Path of the folder where to store the plots")
-    parser.add_argument("-m", type=int, default=15, help="Number of eigenvalues to sum in the GMRQ")
+    parser.add_argument("-m", type=int, default=5, help="Number of eigenvalues to sum in the GMRQ")
     parser.add_argument("--plotEigenvectors", action="store_true", help="Plot the eigenvectors")
     parser.add_argument("--plotGMRQ", action="store_true", help="Plot the GMRQ")
     parser.add_argument("--plotPMF", action="store_true", help="Plot the PMF")
@@ -134,8 +134,8 @@ def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plot
                 if save_plots:
                     f.savefig(os.path.join(PMFPlots, "pmf_run_%d_cl_%d_lag_%d%s.png" % (i, k, tau, filter_str)))
     if save_plots and plotGMRQ:
-        for el in GMRQfigures:
-            el.savefig(os.path.join(GMRQPlots, "GMRQ_lag_%d.png" % tau))
+        for t, el in GMRQfigures.items():
+            el[0].savefig(os.path.join(GMRQPlots, "GMRQ_lag_%d.png" % t))
     if showPlots and (plotEigenvectors or plotGMRQ or plotPMF):
         plt.show()
 
