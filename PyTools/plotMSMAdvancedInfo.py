@@ -55,17 +55,16 @@ def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plot
         os.makedirs(PMFPlots)
     minPos = np.array(minPos)
     runFolder = os.path.split(os.getcwd())[1]
-    GMRQfigures = {}
+    GMRQValues = {}
     print("Running from " + runFolder)
     for tau, k in itertools.product(lagtimes, clusters):
         if plotGMRQ:
-            if tau not in GMRQfigures:
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                GMRQfigures[tau] = (fig, ax)
-                GMRQfigures[tau][0].suptitle("%s, %dlag" % (runFolder, tau))
-                GMRQfigures[tau][1].set_xlabel("Number of states")
-                GMRQfigures[tau][1].set_ylabel("GMRQ")
+            if tau not in GMRQValues:
+                GMRQValues[tau] = {k: []}
+            else:
+                if k not in GMRQValues[tau]:
+                    GMRQValues[tau][k] = []
+
         destFolder = os.path.join("%dlag" % tau, "%dcl" % k)
         print("Lagtime %d, clusters %d" % (tau, k))
         if not os.path.exists(os.path.join(destFolder, "MSM_0", "eigenvectors")):
@@ -75,7 +74,7 @@ def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plot
             if plotGMRQ or plotEigenvectors:
                 msm_object = utilities.readClusteringObject(os.path.join(destFolder, "MSM_0", "MSM_object_%d.pkl" % i))
             if plotGMRQ:
-                GMRQfigures[tau][1].plot(k, np.sum(msm_object.eigenvalues()[:m]), 'x')
+                GMRQValues[tau][k].append(np.sum(msm_object.eigenvalues()[:m]))
             if plotEigenvectors or plotPMF:
                 clusters = np.loadtxt(os.path.join(destFolder, "MSM_0", "clusterCenters_%d.dat" % i))
                 distance = np.linalg.norm(clusters-minPos, axis=1)
@@ -133,9 +132,18 @@ def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plot
                 axarr[0, 0].set_ylabel("Volume")
                 if save_plots:
                     f.savefig(os.path.join(PMFPlots, "pmf_run_%d_cl_%d_lag_%d%s.png" % (i, k, tau, filter_str)))
-    if save_plots and plotGMRQ:
-        for t, el in GMRQfigures.items():
-            el[0].savefig(os.path.join(GMRQPlots, "GMRQ_lag_%d.png" % t))
+    if plotGMRQ:
+        for t in GMRQValues:
+            plt.figure()
+            plt.title("%s, %dlag" % (runFolder, t))
+            plt.xlabel("Number of states")
+            plt.ylabel("GMRQ")
+            clusters = [k for k in GMRQValues[t]]
+            clusters.sort()
+            plt.boxplot([GMRQValues[t][k] for k in GMRQValues[t]])
+            plt.xticks(range(1, len(clusters)+1), clusters)
+            if save_plots:
+                plt.savefig(os.path.join(GMRQPlots, "GMRQ_lag_%d.png" % t))
     if showPlots and (plotEigenvectors or plotGMRQ or plotPMF):
         plt.show()
 
