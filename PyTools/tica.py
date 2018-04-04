@@ -12,7 +12,10 @@ from AdaptivePELE.utilities import utilities
 from AdaptivePELE.atomset import atomset
 import pyemma.coordinates as coor
 import matplotlib.pyplot as plt
-plt.style.use('ggplot')
+try:
+    plt.style.use('ggplot')
+except NameError:
+    pass
 
 
 def parse_arguments():
@@ -31,8 +34,9 @@ def parse_arguments():
     parser.add_argument("-stride", type=int, default=1, help="Stride, e.g. select one conformation out of every x, default 1, that is take all")
     parser.add_argument("-atomId", type=str, default="", help="Atoms to use for the coordinates of the conformation, if not specified use the center of mass")
     parser.add_argument("-r", "-repeat", action="store_true", help="Force the extraction and repeat the coordinates")
+    parser.add_argument("--plot", action="store_true", help="Wheter to make plots")
     args = parser.parse_args()
-    return args.nTICs, args.numClusters, args.ligand_resname, args.lag, args.nTraj, args.totalSteps, args.o, args.stride, args.atomId, args.r
+    return args.nTICs, args.numClusters, args.ligand_resname, args.lag, args.nTraj, args.totalSteps, args.o, args.stride, args.atomId, args.r, args.plot
 
 
 def get_coords(conformation, atom, lig_name):
@@ -47,58 +51,22 @@ def get_coords(conformation, atom, lig_name):
         return pdb_obj.getCOM()
 
 
-if __name__ == "__main__":
-    nTICs, numClusters, ligand_resname, lag, nTraj, n_steps, out_path, stride_conformations, atomId, repeat = parse_arguments()
-    if out_path is None:
-        folderPath = ""
-        curr_folder = "."
-    else:
-        folderPath = out_path
-        curr_folder = out_path
+def find_representative_strucutures(folders, numClusters, nTraj, clusterCenters, projectedUniq, dtrajs):
+    centersInfo = {x: {"structure": None, "minDist": 1e6} for x in range(numClusters)}
+    for i, epoch in enumerate(folders):
+        for iTraj, traj in enumerate(projectedUniq[i*nTraj:(i+1)*nTraj]):
+            for nSnap, snapshot in enumerate(traj):
+                clusterInd = dtrajs[i*nTraj+iTraj][nSnap]
+                dist = np.sqrt(np.sum((clusterCenters[clusterInd]-snapshot)**2))
+                if dist < centersInfo[clusterInd]['minDist']:
+                    centersInfo[clusterInd]['minDist'] = dist
+                    centersInfo[clusterInd]['structure'] = (epoch, iTraj+1, nSnap)
+    return centersInfo
 
-    folders = utilities.get_epoch_folders(curr_folder)
-    if not os.path.exists(os.path.join(folderPath, "0/repeatedExtractedCoordinates/"))or repeat:
-        # Extract ligand and alpha carbons coordinates
-        extractCoords.main(folder_name=curr_folder, lig_resname=ligand_resname, numtotalSteps=n_steps, protein_CA=True, non_Repeat=False)
-    trajectoryFolder = "tica_projected_trajs"
-    trajectoryBasename = "tica_traj*"
-    stride = 1
-    clusterCountsThreshold = 0
 
-    folders.sort(key=int)
-    if not os.path.exists("tica.pkl"):
-        trajs = []
-        for epoch in folders:
-            trajFiles = glob.glob(os.path.join(folderPath, "%s/repeatedExtractedCoordinates/coord*" % epoch))
-            trajFiles.sort(key=lambda x: int(x[x.rfind("_")+1:-4]))
-            for traj in trajFiles:
-                trajs.append(np.loadtxt(traj))
-
-        tica = coor.tica(data=trajs, lag=lag)
-        with open("tica.pkl", "w") as f:
-            pickle.dump(tica, f)
-    else:
-        with open("tica.pkl") as f:
-            tica = pickle.load(f)
-
-    projected = tica.get_output(dimensions=range(nTICs))
-    if not os.path.exists(trajectoryFolder):
-        os.makedirs(trajectoryFolder)
-
-        for i, epoch in enumerate(folders):
-            for iTraj, traj in enumerate(projected[i*nTraj:(i+1)*nTraj]):
-                auxArr = np.zeros_like(traj[:, 0])
-                # Add a first column of indexes because it is the format that the
-                # cluster module of the freeEnergie module reads
-                np.savetxt(os.path.join(trajectoryFolder, "%s_%d_%d.dat" % (trajectoryBasename[:-1], int(epoch), iTraj+1)), np.hstack((auxArr.reshape(-1, 1), traj)))
-
-    clusteringObject = cluster.Cluster(numClusters, trajectoryFolder,
-                                       trajectoryBasename, alwaysCluster=False,
-                                       stride=stride)
-    clusteringObject.clusterTrajectories()
-    clusteringObject.eliminateLowPopulatedClusters(clusterCountsThreshold)
-
-    utilities.makeFolder("tica_COM")
+def projectTICATrajs(folders, folderPath, ligand_resname, atomId, stride_conformations, nTICs, tica, writeFiles=True):
+    if writeFiles:
+        utilities.makeFolder("tica_COM")
     trajsUniq = []
     projectedUniq = []
     for epoch in folders:
@@ -114,23 +82,15 @@ if __name__ == "__main__":
                 trajLoad = trajLoad[np.newaxis, :]
             projectedTraj = tica.transform(trajLoad[::stride_conformations])[:, :nTICs]
             projectedUniq.append(projectedTraj)
-            np.savetxt("tica_COM/traj_%s_%d.dat" % (epoch, trajNum), np.hstack((np.array(trajCOM), projectedTraj)),
-                       header="COM coordinates x\ty\tz\t TICA coordinates\t"+"\t".join(["TICA %d" % tic for tic in range(nTICs)]) + "\n")
+            if writeFiles:
+                np.savetxt("tica_COM/traj_%s_%d.dat" % (epoch, trajNum), np.hstack((np.array(trajCOM), projectedTraj)),
+                           header="COM coordinates x\ty\tz\t TICA coordinates\t"+"\t".join(["TICA %d" % tic for tic in range(nTICs)]) + "\n")
+    return trajsUniq, projectedUniq
 
-    clusterCenters = clusteringObject.clusterCenters
-    dtrajs = clusteringObject.assignNewTrajectories(projectedUniq)
-    centersInfo = {x: {"structure": None, "minDist": 1e6} for x in range(numClusters)}
-    for i, epoch in enumerate(folders):
-        for iTraj, traj in enumerate(projectedUniq[i*nTraj:(i+1)*nTraj]):
-            for nSnap, snapshot in enumerate(traj):
-                clusterInd = dtrajs[i*nTraj+iTraj][nSnap]
-                dist = np.sqrt(np.sum((clusterCenters[clusterInd]-snapshot)**2))
-                if dist < centersInfo[clusterInd]['minDist']:
-                    centersInfo[clusterInd]['minDist'] = dist
-                    centersInfo[clusterInd]['structure'] = (epoch, iTraj+1, nSnap)
 
-    if not os.path.exists("clusterCenters"):
-        os.makedirs("clusterCenters")
+def writeCentersInfo(centersInfo, folderPath, ligand_resname, nTICs, numClusters, trajsUniq, clustersCentersFolder, nTraj):
+    if not os.path.exists(clustersCentersFolder):
+        os.makedirs(clustersCentersFolder)
     COM_list = []
     for clusterNum in centersInfo:
         epoch, trajNum, snap = centersInfo[clusterNum]['structure']
@@ -138,35 +98,121 @@ if __name__ == "__main__":
         snapshots = utilities.getSnapshots(os.path.join(folderPath, "%s/trajectory_%d.pdb" % (epoch, trajNum)))
         pdb_object = atomset.PDB()
         pdb_object.initialise(snapshots[snap], resname=ligand_resname)
-        pdb_object.writePDB("clusterCenters/cluster_%d.pdb" % clusterNum)
+        pdb_object.writePDB(os.path.join(clustersCentersFolder, "cluster_%d.pdb" % clusterNum))
 
     distances = [[nC, centersInfo[nC]['minDist']] for nC in range(numClusters)]
-    np.savetxt("clusterCenters/clusterDistances_%dcl_%dTICs.dat" % (numClusters, nTICs), distances)
-    utilities.write_PDB_clusters(COM_list, "clusterCenters/clustersCenters_%dcl_%dTICs.pdb" % (numClusters, nTICs))
-    plotTICA = True
+    np.savetxt(os.path.join(clustersCentersFolder, "clusterDistances_%dcl_%dTICs.dat" % (numClusters, nTICs)), distances)
+    utilities.write_PDB_clusters(COM_list, os.path.join(clustersCentersFolder, "clustersCenters_%dcl_%dTICs.pdb" % (numClusters, nTICs)))
+
+
+def make_TICA_plot(nTICs, projected):
+    plt.rcParams.update({'legend.markerscale': 10})
+    # coords = np.array(projected)
+    states = list(range(nTICs))
+    for state in states:
+        plt.figure()
+        # plt.plot(coords[:,:,state].flatten(), 'x', markersize=0.5, label="Tica %d" % (state+1))
+        plotNum = 0
+        for traj in projected:
+            try:
+                plt.plot(list(range(plotNum, plotNum+traj.shape[0])), traj[:, state], 'x', markersize=0.5, color="r")
+                plotNum += traj.shape[0]
+                # plt.plot(traj[:, 2], traj[:, state], 'x', markersize=0.5, color="r")
+            except IndexError:
+                plt.plot([plotNum], traj[state], 'x', markersize=0.5, color="r")
+                plotNum += 1
+                # plt.plot(traj[2], traj[state], 'x', markersize=0.5, color="r")
+        plt.title("Tica %d" % (state+1))
+        # plt.title("Comparing different Tica")
+        # plt.xlabel("Tica 3")
+        # plt.ylabel("Tica %d" % (state+1))
+        # plt.savefig("tica_3_%d_IC.png" % (state + 1))
+        plt.savefig("tica_%d_IC.png" % (state + 1))
+    # plt.show()
+    # import sys
+    # sys.exit()
+
+
+def make_TICA_decomposition(ticaObject, folders, folderPath, lag, overWriteObject=False):
+    if overWriteObject or not os.path.exists(ticaObject):
+        trajs = []
+        for epoch in folders:
+            trajFiles = glob.glob(os.path.join(folderPath, "%s/repeatedExtractedCoordinates/coord*" % epoch))
+            trajFiles.sort(key=lambda x: int(x[x.rfind("_")+1:-4]))
+            for traj in trajFiles:
+                trajs.append(np.loadtxt(traj))
+
+        tica = coor.tica(data=trajs, lag=lag)
+        with open(ticaObject, "w") as f:
+            pickle.dump(tica, f)
+    else:
+        with open(ticaObject) as f:
+            tica = pickle.load(f)
+    return tica
+
+
+def write_TICA_trajs(trajectoryFolder, projected, trajectoryBasename, folders, nTraj):
+    if not os.path.exists(trajectoryFolder):
+        os.makedirs(trajectoryFolder)
+
+    for i, epoch in enumerate(folders):
+        for iTraj, traj in enumerate(projected[i*nTraj:(i+1)*nTraj]):
+            auxArr = np.zeros_like(traj[:, 0])
+            # Add a first column of indexes because it is the format that the
+            # cluster module of the freeEnergie module reads
+            np.savetxt(os.path.join(trajectoryFolder, "%s_%d_%d.dat" % (trajectoryBasename[:-1], int(epoch), iTraj+1)), np.hstack((auxArr.reshape(-1, 1), traj)))
+
+
+def cluster_TICA_space(numClusters, trajectoryFolder, trajectoryBasename, stride, clusterCountsThreshold):
+    clusteringObject = cluster.Cluster(numClusters, trajectoryFolder,
+                                       trajectoryBasename, alwaysCluster=False,
+                                       stride=stride)
+    clusteringObject.clusterTrajectories()
+    clusteringObject.eliminateLowPopulatedClusters(clusterCountsThreshold)
+    return clusteringObject
+
+
+def main(nTICs, numClusters, ligand_resname, lag, nTraj, n_steps, out_path=None, stride_conformations=1, atomId="", repeat=False, plotTICA=False):
+    # Constants definition
+    trajectoryFolder = "tica_projected_trajs"
+    trajectoryBasename = "tica_traj*"
+    stride = 1
+    clusterCountsThreshold = 0
+    clustersCentersFolder = "clustersCenters"
+    ticaObject = "tica.pkl"
+
+    if out_path is None:
+        folderPath = ""
+        curr_folder = "."
+    else:
+        folderPath = out_path
+        curr_folder = out_path
+
+    folders = utilities.get_epoch_folders(curr_folder)
+    folders.sort(key=int)
+
+    if not os.path.exists(os.path.join(folderPath, "0/repeatedExtractedCoordinates/"))or repeat:
+        # Extract ligand and alpha carbons coordinates
+        extractCoords.main(folder_name=curr_folder, lig_resname=ligand_resname, numtotalSteps=n_steps, protein_CA=True, non_Repeat=False)
+
+    tica = make_TICA_decomposition(ticaObject, folders, folderPath, lag)
+
+    # Select the desired number of independent components from the full
+    # decomposition
+    projected = tica.get_output(dimensions=range(nTICs))
+    write_TICA_trajs(trajectoryFolder, projected, trajectoryBasename, folders, nTraj)
+    clusteringObject = cluster_TICA_space(numClusters, trajectoryFolder, trajectoryBasename, stride, clusterCountsThreshold)
+
+    trajsUniq, projectedUniq = projectTICATrajs(folders, folderPath, ligand_resname, atomId, stride_conformation, nTICs, tica)
+
+    clusterCenters = clusteringObject.clusterCenters
+    dtrajs = clusteringObject.assignNewTrajectories(projectedUniq)
+    centersInfo = find_representative_strucutures(folders, numClusters, nTraj, clusterCenters, projectedUniq, dtrajs)
+
+    writeCentersInfo(centersInfo, folderPath, ligand_resname, nTICs, numClusters, trajsUniq, clustersCentersFolder, nTraj)
     if plotTICA:
-        plt.rcParams.update({'legend.markerscale': 10})
-        # coords = np.array(projected)
-        states = list(range(nTICs))
-        for state in states:
-            plt.figure()
-            # plt.plot(coords[:,:,state].flatten(), 'x', markersize=0.5, label="Tica %d" % (state+1))
-            plotNum = 0
-            for traj in projected:
-                try:
-                    plt.plot(list(range(plotNum, plotNum+traj.shape[0])), traj[:, state], 'x', markersize=0.5, color="r")
-                    plotNum += traj.shape[0]
-                    # plt.plot(traj[:, 2], traj[:, state], 'x', markersize=0.5, color="r")
-                except IndexError as e:
-                    plt.plot([plotNum], traj[state], 'x', markersize=0.5, color="r")
-                    plotNum += 1
-                    # plt.plot(traj[2], traj[state], 'x', markersize=0.5, color="r")
-            plt.title("Tica %d" % (state+1))
-            # plt.title("Comparing different Tica")
-            # plt.xlabel("Tica 3")
-            # plt.ylabel("Tica %d" % (state+1))
-            # plt.savefig("tica_3_%d_IC.png" % (state + 1))
-            plt.savefig("tica_%d_IC.png" % (state + 1))
-        # plt.show()
-        # import sys
-        # sys.exit()
+        make_TICA_plot(nTICs, projected)
+
+if __name__ == "__main__":
+    nICs, n_clusters, lig_resname, lagtime, n_traj, n_step, output_path, stride_conformation, atomIds, repeat_true, plots = parse_arguments()
+    main(nICs, n_clusters, lig_resname, lagtime, n_traj, n_step, output_path, stride_conformation, atomIds, repeat_true, plots)
