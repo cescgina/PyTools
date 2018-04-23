@@ -10,6 +10,10 @@ from AdaptivePELE.freeEnergies import extractCoords
 from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
 plt.style.use("ggplot")
+try:
+    basestring
+except NameError:
+    basestring = str
 
 
 def parseArgs():
@@ -26,8 +30,9 @@ def parseArgs():
     parser.add_argument("--plot", action="store_true", help="Wether to plot clusters with respect to SASA and energy values")
     parser.add_argument("-trajname", type=str, default="trajectory", help="Basename of the trajctory file, i.e for run_traj_1.pdb pass run_traj, default is trajectory")
     parser.add_argument("-energycluster", action="store_true", help="Wether to use the energy to get the clusters, default is false, uses the coordiantes")
+    parser.add_argument("-top", type=str, default=None, help="Topology file for non-pdb trajectories")
     args = parser.parse_args()
-    return args.nClusters, args.ligand_resname, args.atomId, args.o, args.f, args.SASA, args.norm_energy, args.bins, args.percentile, args.plot, args.trajname, args.energycluster
+    return args.nClusters, args.ligand_resname, args.atomId, args.o, args.f, args.SASA, args.norm_energy, args.bins, args.percentile, args.plot, args.trajname, args.energycluster, args.top
 
 
 def writePDB(pmf_xyzg, title="clusters.pdb"):
@@ -49,7 +54,7 @@ def writePDB(pmf_xyzg, title="clusters.pdb"):
 
 def main(n_clusters, output_folder, SASAColumn, norm_energy, num_bins,
          percentile, plots, atom_Ids, folder_name, traj_basename,
-         cluster_energy):
+         cluster_energy, topology=None):
     energyColumn = 3
 
     if output_folder is not None:
@@ -112,6 +117,10 @@ def main(n_clusters, output_folder, SASAColumn, norm_energy, num_bins,
         title = "clusters_%d_energy_SASA_coords.pdb"
     centers_energy = []
     centers_coords = []
+    if topology is not None:
+        topology_contents = utilities.getTopologyFile(topology)
+    else:
+        topology = None
     for i, center in enumerate(kmeans.cluster_centers_):
         if cluster_energy:
             dist = np.linalg.norm((points[:, :2]-center), axis=1)
@@ -120,8 +129,13 @@ def main(n_clusters, output_folder, SASAColumn, norm_energy, num_bins,
         epoch, traj, snapshot = points[dist.argmin(), 2:5]
         centers_energy.append(points[dist.argmin(), :2])
         centers_coords.append(points[dist.argmin(), 5:8])
-        with open(os.path.join(outputFolder, "initial_%d.pdb" % i), "w") as fw:
-            fw.write(utilities.getSnapshots("%d/%s_%d.pdb" % (epoch, traj_basename, traj))[int(snapshot)])
+        traj_file = glob.glob("%d/%s_%d*" % (epoch, traj_basename, traj))[0]
+        conf = utilities.getSnapshots(traj_file, topology=topology)[int(snapshot)]
+        if isinstance(conf, basestring):
+            with open(os.path.join(outputFolder, "initial_%d.pdb" % i), "w") as fw:
+                fw.write(conf)
+        else:
+            utilities.write_mdtraj_object_PDB(conf, os.path.join(outputFolder, "initial_%d.pdb" % i), topology_contents)
     centers_energy = np.array(centers_energy)
     centers_coords = np.array(centers_coords)
     writePDB(centers_coords, os.path.join(outputFolder, title % n_clusters))
@@ -138,5 +152,5 @@ def main(n_clusters, output_folder, SASAColumn, norm_energy, num_bins,
         plt.show()
 
 if __name__ == "__main__":
-    nClusters, ligand_resname, atomId, output, traj_folder, SASA, normal_energy, n_bins, percent, plot, traj_Basename, cluster_energy_ = parseArgs()
-    main(nClusters, output, SASA, normal_energy, n_bins, percent, plot, atomId, traj_folder, traj_Basename, cluster_energy_)
+    nClusters, ligand_resname, atomId, output, traj_folder, SASA, normal_energy, n_bins, percent, plot, traj_Basename, cluster_energy_, top = parseArgs()
+    main(nClusters, output, SASA, normal_energy, n_bins, percent, plot, atomId, traj_folder, traj_Basename, cluster_energy_, topology=top)

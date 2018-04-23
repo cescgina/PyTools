@@ -35,8 +35,9 @@ def parse_arguments():
     parser.add_argument("-atomId", type=str, default="", help="Atoms to use for the coordinates of the conformation, if not specified use the center of mass")
     parser.add_argument("-r", "-repeat", action="store_true", help="Force the extraction and repeat the coordinates")
     parser.add_argument("--plot", action="store_true", help="Wheter to make plots")
+    parser.add_argument("-top", type=str, default=None, help="Topology file for non-pdb trajectories")
     args = parser.parse_args()
-    return args.nTICs, args.numClusters, args.ligand_resname, args.lag, args.nTraj, args.totalSteps, args.o, args.stride, args.atomId, args.r, args.plot
+    return args.nTICs, args.numClusters, args.ligand_resname, args.lag, args.nTraj, args.totalSteps, args.o, args.stride, args.atomId, args.r, args.plot, args.top
 
 
 def get_coords(conformation, atom, lig_name):
@@ -64,7 +65,7 @@ def find_representative_strucutures(folders, numClusters, nTraj, clusterCenters,
     return centersInfo
 
 
-def projectTICATrajs(folders, folderPath, ligand_resname, atomId, stride_conformations, nTICs, tica, writeFiles=True):
+def projectTICATrajs(folders, folderPath, ligand_resname, atomId, stride_conformations, nTICs, tica, writeFiles=True, topology=None):
     if writeFiles:
         utilities.makeFolder("tica_COM")
     trajsUniq = []
@@ -74,7 +75,8 @@ def projectTICATrajs(folders, folderPath, ligand_resname, atomId, stride_conform
         trajFiles.sort(key=lambda x: int(x[x.rfind("_")+1:-4]))
         for trajName in trajFiles:
             trajNum = int(trajName[trajName.rfind("_")+1:-4])
-            snapshotsPDB = utilities.getSnapshots(os.path.join(folderPath, "%s/trajectory_%d.pdb" % (epoch, trajNum)))
+            trajFile = glob.glob(os.path.join(folderPath, "%s/trajectory_%d*" % (epoch, trajNum)))[0]
+            snapshotsPDB = utilities.getSnapshots(trajFile, topology=topology)
             trajCOM = [get_coords(snapshot, atomId, ligand_resname) for snapshot in itertools.islice(snapshotsPDB, 0, None, stride_conformations)]
             trajsUniq.append(trajCOM)
             trajLoad = np.loadtxt(trajName)
@@ -88,17 +90,22 @@ def projectTICATrajs(folders, folderPath, ligand_resname, atomId, stride_conform
     return trajsUniq, projectedUniq
 
 
-def writeCentersInfo(centersInfo, folderPath, ligand_resname, nTICs, numClusters, trajsUniq, clustersCentersFolder, nTraj):
+def writeCentersInfo(centersInfo, folderPath, ligand_resname, nTICs, numClusters, trajsUniq, clustersCentersFolder, nTraj, topology=None):
+    if topology is not None:
+        topology_contents = utilities.getTopologyFile(topology)
+    else:
+        topology_contents = None
     if not os.path.exists(clustersCentersFolder):
         os.makedirs(clustersCentersFolder)
     COM_list = []
     for clusterNum in centersInfo:
         epoch, trajNum, snap = centersInfo[clusterNum]['structure']
         COM_list.append(trajsUniq[int(epoch)*nTraj+(trajNum-1)][snap])
-        snapshots = utilities.getSnapshots(os.path.join(folderPath, "%s/trajectory_%d.pdb" % (epoch, trajNum)))
+        trajFile = glob.glob(os.path.join(folderPath, "%s/trajectory_%d*" % (epoch, trajNum)))
+        snapshots = utilities.getSnapshots(trajFile, topology=topology)
         pdb_object = atomset.PDB()
         pdb_object.initialise(snapshots[snap], resname=ligand_resname)
-        pdb_object.writePDB(os.path.join(clustersCentersFolder, "cluster_%d.pdb" % clusterNum))
+        pdb_object.writePDB(os.path.join(clustersCentersFolder, "cluster_%d.pdb" % clusterNum), topology=topology_contents)
 
     distances = [[nC, centersInfo[nC]['minDist']] for nC in range(numClusters)]
     np.savetxt(os.path.join(clustersCentersFolder, "clusterDistances_%dcl_%dTICs.dat" % (numClusters, nTICs)), distances)
@@ -133,7 +140,7 @@ def make_TICA_plot(nTICs, projected):
     # sys.exit()
 
 
-def make_TICA_decomposition(ticaObject, folders, folderPath, lag, overWriteObject=False):
+def make_TICA_decomposition(ticaObject, folders, folderPath, lag, overWriteObject=False, kinetic_map=True, commute_map=False):
     if overWriteObject or not os.path.exists(ticaObject):
         trajs = []
         for epoch in folders:
@@ -142,11 +149,11 @@ def make_TICA_decomposition(ticaObject, folders, folderPath, lag, overWriteObjec
             for traj in trajFiles:
                 trajs.append(np.loadtxt(traj))
 
-        tica = coor.tica(data=trajs, lag=lag)
-        with open(ticaObject, "w") as f:
+        tica = coor.tica(data=trajs, lag=lag, kinetic_map=kinetic_map, commute_map=commute_map)
+        with open(ticaObject, "wb") as f:
             pickle.dump(tica, f)
     else:
-        with open(ticaObject) as f:
+        with open(ticaObject, "rb") as f:
             tica = pickle.load(f)
     return tica
 
@@ -172,7 +179,7 @@ def cluster_TICA_space(numClusters, trajectoryFolder, trajectoryBasename, stride
     return clusteringObject
 
 
-def main(nTICs, numClusters, ligand_resname, lag, nTraj, n_steps, out_path=None, stride_conformations=1, atomId="", repeat=False, plotTICA=False):
+def main(nTICs, numClusters, ligand_resname, lag, nTraj, n_steps, out_path=None, stride_conformations=1, atomId="", repeat=False, plotTICA=False, topology=None):
     # Constants definition
     trajectoryFolder = "tica_projected_trajs"
     trajectoryBasename = "tica_traj*"
@@ -203,16 +210,16 @@ def main(nTICs, numClusters, ligand_resname, lag, nTraj, n_steps, out_path=None,
     write_TICA_trajs(trajectoryFolder, projected, trajectoryBasename, folders, nTraj)
     clusteringObject = cluster_TICA_space(numClusters, trajectoryFolder, trajectoryBasename, stride, clusterCountsThreshold)
 
-    trajsUniq, projectedUniq = projectTICATrajs(folders, folderPath, ligand_resname, atomId, stride_conformation, nTICs, tica)
+    trajsUniq, projectedUniq = projectTICATrajs(folders, folderPath, ligand_resname, atomId, stride_conformation, nTICs, tica, topology=topology)
 
     clusterCenters = clusteringObject.clusterCenters
     dtrajs = clusteringObject.assignNewTrajectories(projectedUniq)
     centersInfo = find_representative_strucutures(folders, numClusters, nTraj, clusterCenters, projectedUniq, dtrajs)
 
-    writeCentersInfo(centersInfo, folderPath, ligand_resname, nTICs, numClusters, trajsUniq, clustersCentersFolder, nTraj)
+    writeCentersInfo(centersInfo, folderPath, ligand_resname, nTICs, numClusters, trajsUniq, clustersCentersFolder, nTraj, topology=topology)
     if plotTICA:
         make_TICA_plot(nTICs, projected)
 
 if __name__ == "__main__":
-    nICs, n_clusters, lig_resname, lagtime, n_traj, n_step, output_path, stride_conformation, atomIds, repeat_true, plots = parse_arguments()
-    main(nICs, n_clusters, lig_resname, lagtime, n_traj, n_step, output_path, stride_conformation, atomIds, repeat_true, plots)
+    nICs, n_clusters, lig_resname, lagtime, n_traj, n_step, output_path, stride_conformation, atomIds, repeat_true, plots, top = parse_arguments()
+    main(nICs, n_clusters, lig_resname, lagtime, n_traj, n_step, output_path, stride_conformation, atomIds, repeat_true, plots, topology=top)

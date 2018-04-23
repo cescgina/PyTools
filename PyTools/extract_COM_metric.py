@@ -4,9 +4,10 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 from builtins import range
 from io import open
-import numpy as np
 import argparse
+import glob
 import itertools
+import numpy as np
 from AdaptivePELE.utilities import utilities
 from PyTools.tica import get_coords
 
@@ -26,11 +27,12 @@ def parse_arguments():
     parser.add_argument("-s", "-savingFreq", type=int, default=1, help="Saving frequency of PELE simulation")
     parser.add_argument("-t", "-trajectoryName", type=str, default="trajectory", help="Name of the trajectory files, e.g for trajectory_1.pdb the name is trajectory, default is trajectory")
     parser.add_argument("-r", "-reportName", type=str, default="report", help="Name of the report files, e.g for report_1.pdb the name is report, default is report")
+    parser.add_argument("-top", type=str, default=None, help="Topology file for non-pdb trajectories")
     args = parser.parse_args()
-    return args.metricCol, args.ligand_resname, args.nTraj, args.filter, args.stride, args.atomId, args.s, args.t, args.r
+    return args.metricCol, args.ligand_resname, args.nTraj, args.filter, args.stride, args.atomId, args.s, args.t, args.r, args.top
 
 
-def main(metricCol, lig_resname, nTrajs, filter_val, stride, atomId, saving_frequency, trajectory_name, report_name):
+def main(metricCol, lig_resname, nTrajs, filter_val, stride, atomId, saving_frequency, trajectory_name, report_name, topology=None):
     folders = utilities.get_epoch_folders(".")
     data = []
     minMetric = 1e6
@@ -41,7 +43,8 @@ def main(metricCol, lig_resname, nTrajs, filter_val, stride, atomId, saving_freq
             report = np.loadtxt("%s/%s_%d" % (epoch, report_name, iTraj))
             if len(report.shape) < 2:
                 report = report[np.newaxis, :]
-            snapshots = utilities.getSnapshots("%s/%s_%d.pdb" % (epoch, trajectory_name, iTraj))
+            traj_file = glob.glob("%s/%s_%d*" % (epoch, trajectory_name, iTraj))[0]
+            snapshots = utilities.getSnapshots(traj_file, topology=topology)
             for i, snapshot in enumerate(itertools.islice(snapshots, 0, None, stride)):
                 report_line = i * stride * saving_frequency
                 data.append(get_coords(snapshot, atomId, lig_resname) + [report[report_line, metricCol]])
@@ -66,5 +69,5 @@ def main(metricCol, lig_resname, nTrajs, filter_val, stride, atomId, saving_freq
             fw.write("{:s} {:s} {:s} {:s} {:s} {:s} {:s} {:s}\n".format(*tuple(info)))
 
 if __name__ == "__main__":
-    metric_col, ligand, n_trajs, filter_value, stride_val, atom_ids, save_freq, traj_name, rep_name = parse_arguments()
-    main(metric_col, ligand, n_trajs, filter_value, stride_val, atom_ids, save_freq, traj_name, rep_name)
+    metric_col, ligand, n_trajs, filter_value, stride_val, atom_ids, save_freq, traj_name, rep_name, top = parse_arguments()
+    main(metric_col, ligand, n_trajs, filter_value, stride_val, atom_ids, save_freq, traj_name, rep_name, topology=top)

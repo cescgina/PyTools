@@ -8,6 +8,10 @@ import numpy as np
 import argparse
 from AdaptivePELE.utilities import utilities
 from AdaptivePELE.freeEnergies import cluster, extractCoords
+try:
+    basestring
+except NameError:
+    basestring = str
 
 
 def parseArgs():
@@ -17,8 +21,9 @@ def parseArgs():
     parser.add_argument("-atomId", nargs="*", default="", help="Atoms to use for the coordinates of the conformation, if not specified use the center of mass")
     parser.add_argument('-o', type=str, help="Output folder")
     parser.add_argument('-f', type=str, default=".", help="Trajectory folder")
+    parser.add_argument('-top', type=str, default=None, help="Topology file for non-pdb trajectories")
     args = parser.parse_args()
-    return args.nClusters, args.ligand_resname, args.atomId, args.o, args.f
+    return args.nClusters, args.ligand_resname, args.atomId, args.o, args.f, args.top
 
 
 def writePDB(pmf_xyzg, title="clusters.pdb"):
@@ -38,13 +43,18 @@ def writePDB(pmf_xyzg, title="clusters.pdb"):
         f.write(content)
 
 
-def writeInitialStructures(centers_info, filename_template):
+def writeInitialStructures(centers_info, filename_template, topology=None):
+    if topology is not None:
+        topology_contents = utilities.getTopologyFile(topology)
     for cluster_num in centers_info:
         epoch_num, traj_num, snap_num = map(int, centers_info[cluster_num]['structure'])
-        trajectory = "%d/trajectory_%d.pdb" % (epoch_num, traj_num)
-        snapshots = utilities.getSnapshots(trajectory)
-        with open(filename_template % cluster_num, "w") as fw:
-            fw.write(snapshots[snap_num])
+        trajectory = glob.glob("%d/trajectory_%d*" % (epoch_num, traj_num))[0]
+        snapshots = utilities.getSnapshots(trajectory, topology=topology)
+        if isinstance(snapshots[0], basestring):
+            with open(filename_template % cluster_num, "w") as fw:
+                fw.write(snapshots[snap_num])
+        else:
+            utilities.write_mdtraj_object_PDB(snapshots[snap_num], filename_template % cluster_num, topology_contents)
 
 
 def get_centers_info(trajectoryFolder, trajectoryBasename, num_clusters, clusterCenters):
@@ -68,7 +78,7 @@ def get_centers_info(trajectoryFolder, trajectoryBasename, num_clusters, cluster
     return centersInfo
 
 
-def main(num_clusters, output_folder, ligand_resname, atom_ids, folder_name="."):
+def main(num_clusters, output_folder, ligand_resname, atom_ids, folder_name=".", topology=None):
     extractCoords.main(folder_name, lig_resname=ligand_resname, non_Repeat=True, atom_Ids=atom_ids)
     trajectoryFolder = "allTrajs"
     trajectoryBasename = "traj*"
@@ -97,8 +107,8 @@ def main(num_clusters, output_folder, ligand_resname, atom_ids, folder_name=".")
     else:
         outputFolder = ""
     writePDB(COMArray, outputFolder+"clusters_%d_KMeans_allSnapshots.pdb" % num_clusters)
-    writeInitialStructures(centersInfo, outputFolder+"initial_%d.pdb")
+    writeInitialStructures(centersInfo, outputFolder+"initial_%d.pdb", topology=topology)
 
 if __name__ == "__main__":
-    n_clusters, lig_name, atom_id, output, traj_folder = parseArgs()
-    main(n_clusters, output, lig_name, atom_id, folder_name=traj_folder)
+    n_clusters, lig_name, atom_id, output, traj_folder, top = parseArgs()
+    main(n_clusters, output, lig_name, atom_id, folder_name=traj_folder, topology=top)

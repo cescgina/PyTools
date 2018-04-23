@@ -8,6 +8,10 @@ import argparse
 import shutil
 from AdaptivePELE.freeEnergies import cluster
 from AdaptivePELE.utilities import utilities
+try:
+    basestring
+except NameError:
+    basestring = str
 
 
 def parse_arguments():
@@ -19,11 +23,12 @@ def parse_arguments():
     parser.add_argument("ligand_resname", type=str, help="Name of the ligand in the PDB")
     parser.add_argument("-conf", default=None, help="Path of the folders where the conformations are stored")
     parser.add_argument("-c", default=None, help="Path of the cluster centers")
+    parser.add_argument("-top", type=str, default=None, help="Topology file for non-pdb trajectories")
     args = parser.parse_args()
-    return args.ligand_resname, args.conf, args.c
+    return args.ligand_resname, args.conf, args.c, args.top
 
 
-def main(ligand, clusters_file, conf_folder):
+def main(ligand, clusters_file, conf_folder, topology=None):
     trajFolder = "allTrajs_nonRepeat"
     cluster_centers = np.loadtxt(clusters_file)
     if not os.path.exists("discretized"):
@@ -33,6 +38,10 @@ def main(ligand, clusters_file, conf_folder):
     stride = 1
     clusterCountsThreshold = 0
     trajBasename = "coord*"
+    if topology is not None:
+        topology_contents = utilities.getTopologyFile(topology)
+    else:
+        topology_contents = None
     epoch_folders = utilities.get_epoch_folders(conf_folder)
     numClusters = cluster_centers.shape[0]
     coordinates = [[] for cl in range(numClusters)]
@@ -54,15 +63,19 @@ def main(ligand, clusters_file, conf_folder):
         traj = np.loadtxt(dtraj)
         epoch, traj_num = map(int, os.path.splitext(dtraj)[0].split("_", 3)[1:])
         trajPositions = np.loadtxt(trajFolder+"/coord_%d_%d.dat" % (epoch, traj_num))
-        snapshots = utilities.getSnapshots(conf_folder+"/%d/trajectory_%d.pdb" % (epoch, traj_num))
+        trajFile = glob.glob(os.path.join(conf_folder+"%d/trajectory_%d*" % (epoch, traj_num)))[0]
+        snapshots = utilities.getSnapshots(trajFile, topology=topology)
         for nSnap, cluster_num in enumerate(traj):
             coordinates[int(cluster_num)].append(trajPositions[nSnap])
             filename = "cluster_%d/allStructures/conf_%d_%d_%d.pdb" % (cluster_num, epoch, traj_num, nSnap)
-            with open(filename, "w") as fw:
-                fw.write(snapshots[nSnap])
+            if isinstance(snapshots[nSnap], basestring):
+                with open(filename, "w") as fw:
+                    fw.write(snapshots[nSnap])
+            else:
+                utilities.write_mdtraj_object_PDB(snapshots[nSnap], filename, topology_contents)
     for cl in range(numClusters):
         np.savetxt("cluster_%d/positions.dat" % cl, coordinates[cl])
 
 if __name__ == "__main__":
-    lig, conformation_folder, clusters = parse_arguments()
-    main(lig, clusters, conformation_folder)
+    lig, conformation_folder, clusters, top = parse_arguments()
+    main(lig, clusters, conformation_folder, topology=top)
