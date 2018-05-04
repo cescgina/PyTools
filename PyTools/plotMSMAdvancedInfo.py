@@ -5,6 +5,7 @@ import numpy as np
 import argparse
 import itertools
 from AdaptivePELE.utilities import utilities
+from AdaptivePELE.atomset import atomset
 from AdaptivePELE.freeEnergies import computeDeltaG
 from msmtools.analysis import rdl_decomposition
 import matplotlib.pyplot as plt
@@ -31,16 +32,18 @@ def parse_arguments():
     parser.add_argument("--showPlots", action="store_true", help="Show the plots to screen")
     parser.add_argument("--filter", type=int, nargs="*", default=None, help="Clusters to plot")
     parser.add_argument("--path", type=str, help="Path to the folder with the MSM data")
+    parser.add_argument("--native", type=str, default=None, help="Path to the native structure to extract the minimum position")
+    parser.add_argument("--resname", type=str, default=None, help="Resname of the ligand in the native pdb")
     args = parser.parse_args()
-    return args.nEigen, args.clusters, args.lagtimes, args.nRuns, args.minima, args.o, args.m, args.plotEigenvectors, args.plotGMRQ, args.plotPMF, args.savePlots, args.showPlots, args.filter, args.path
+    return args.nEigen, args.clusters, args.lagtimes, args.nRuns, args.minima, args.o, args.m, args.plotEigenvectors, args.plotGMRQ, args.plotPMF, args.savePlots, args.showPlots, args.filter, args.path, args.native, args.resname
 
 
 def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plotPMF, clusters, lagtimes, minPos, save_plots, showPlots, filtered, destFolder):
     if save_plots and outputFolder is None:
         outputFolder = "plots_MSM"
-        eigenPlots = os.path.join(outputFolder, "eigenvector_plots")
-        GMRQPlots = os.path.join(outputFolder, "GMRQ_plots")
-        PMFPlots = os.path.join(outputFolder, "PMF_plots")
+    eigenPlots = os.path.join(outputFolder, "eigenvector_plots")
+    GMRQPlots = os.path.join(outputFolder, "GMRQ_plots")
+    PMFPlots = os.path.join(outputFolder, "PMF_plots")
     if save_plots and not os.path.exists(outputFolder):
         os.makedirs(outputFolder)
     if filtered is not None:
@@ -91,9 +94,12 @@ def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plot
                 axes.append(axarr)
 
             for j, row in enumerate(L[:nEigenvectors]):
-                atomnames = utilities.getAtomNames(utilities.sign(row, tol=1e-4))
                 pdb_filename = os.path.join(destFolder, "eigenvectors", "eigen_%d_run_%d.pdb" % (j+1, i))
-                utilities.write_PDB_clusters(clusters, use_beta=False, elements=atomnames, title=pdb_filename)
+                if j:
+                    atomnames = utilities.getAtomNames(utilities.sign(row, tol=1e-3))
+                    utilities.write_PDB_clusters(clusters, use_beta=False, elements=atomnames, title=pdb_filename)
+                else:
+                    utilities.write_PDB_clusters(np.vstack((clusters.T, row)).T, use_beta=True, elements=None, title=pdb_filename)
                 if filtered is not None:
                     row = row[filtered]
                 np.savetxt(os.path.join(destFolder, "eigenvectors", "eigen_%d_run_%d%s.dat" % (j+1, i, filter_str)), row)
@@ -137,7 +143,13 @@ def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plot
         plt.show()
 
 if __name__ == "__main__":
-    n_eigen, clusters_list, lagtime_list, runs, minim, output, size_m, plotEigen, plotGMRQs, plotPMFs, write_plots, show_plots, filter_clusters, path_MSM = parse_arguments()
+    n_eigen, clusters_list, lagtime_list, runs, minim, output, size_m, plotEigen, plotGMRQs, plotPMFs, write_plots, show_plots, filter_clusters, path_MSM, native, resname = parse_arguments()
+    if native is not None:
+        if resname is None:
+            raise ValueError("Resname not specified!!")
+        pdb_native = atomset.PDB()
+        pdb_native.initialise(native, resname=resname)
+        minim = pdb_native.getCOM()
     if lagtime_list is not None and clusters_list is not None:
         root, leaf = os.path_MSM.split(path_MSM)
         for tau, k in itertools.product(lagtime_list, clusters_list):
