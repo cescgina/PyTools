@@ -18,7 +18,7 @@ def parse_arguments():
     """
     desc = "Extract metric and COM information for the conformations obtained from a simulation"
     parser = argparse.ArgumentParser(description=desc)
-    parser.add_argument("metricCol", type=int, help="Column of the metric to consider")
+    parser.add_argument("metricCol", type=int, help="Column of the metric to consider, starting by 1")
     parser.add_argument("ligand_resname", type=str, help="Name of the ligand in the PDB")
     parser.add_argument("nTraj", type=int, help="Number of trajectories per epoch")
     parser.add_argument("-filter", type=float, default=None, help="Filter the maximum value of the metric for visualization")
@@ -43,7 +43,7 @@ def main(metricCol, lig_resname, nTrajs, filter_val, stride, atomId, saving_freq
             report = np.loadtxt("%s/%s_%d" % (epoch, report_name, iTraj))
             if len(report.shape) < 2:
                 report = report[np.newaxis, :]
-            traj_file = glob.glob("%s/%s_%d*" % (epoch, trajectory_name, iTraj))[0]
+            traj_file = glob.glob("%s/%s_%d.*" % (epoch, trajectory_name, iTraj))[0]
             snapshots = utilities.getSnapshots(traj_file, topology=topology)
             for i, snapshot in enumerate(itertools.islice(snapshots, 0, None, stride)):
                 report_line = i * stride * saving_frequency
@@ -70,4 +70,4 @@ def main(metricCol, lig_resname, nTrajs, filter_val, stride, atomId, saving_freq
 
 if __name__ == "__main__":
     metric_col, ligand, n_trajs, filter_value, stride_val, atom_ids, save_freq, traj_name, rep_name, top = parse_arguments()
-    main(metric_col, ligand, n_trajs, filter_value, stride_val, atom_ids, save_freq, traj_name, rep_name, topology=top)
+    main(metric_col-1, ligand, n_trajs, filter_value, stride_val, atom_ids, save_freq, traj_name, rep_name, topology=top)
