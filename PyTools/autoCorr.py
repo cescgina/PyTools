@@ -3,25 +3,30 @@ from builtins import range
 from io import open
 import os
 import glob
+import argparse
 import numpy as np
-from AdaptivePELE.freeEnergies import estimateDG
 from AdaptivePELE.freeEnergies import cluster
+from AdaptivePELE.utilities import utilities
 import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 
 
-def writePDB(clusterCenters, autoCorrValue, title="clusters.pdb"):
-    templateLine = "HETATM%s  H%sCLT L 502    %s%s%s  0.75%s           H\n"
-    with open(title, 'w') as f:
-        for i, line in enumerate(clusterCenters):
-            number = str(i).rjust(5)
-            number3 = str(i).ljust(3)
-            x = ("%.3f" % line[0]).rjust(8)
-            y = ("%.3f" % line[1]).rjust(8)
-            z = ("%.3f" % line[2]).rjust(8)
-            g = ("%.3f" % autoCorrValue[i]).rjust(8)
-
-            f.write(templateLine % (number, number3, x, y, z, g))
+def parse_arguments():
+    """
+        Create command-line interface
+    """
+    desc = "Calculate the autocorrelation function of a MSM discretization"
+    parser = argparse.ArgumentParser(description=desc)
+    parser.add_argument("-l", "--lagtimes", type=int, help="Upper limit of the lagtimes to analyse")
+    parser.add_argument("-n", "--n_clusters", type=int, help="Number of clusters")
+    parser.add_argument("-o", default=None, help="Path of the folder where to store the plots")
+    parser.add_argument("--savePlots", action="store_true", help="Save the plots to disk")
+    parser.add_argument("--showPlots", action="store_true", help="Show the plots to screen")
+    parser.add_argument("--dtrajs", type=str, help="Path to the folder with the discretized trajectories")
+    parser.add_argument("--clusters", type=str, default=None, help="Path to the clustering file")
+    parser.add_argument("--trajs", type=str, default=None, help="Path to the trajectories files")
+    args = parser.parse_args()
+    return args.clusters, args.lagtimes, args.o, args.savePlots, args.showPlots, args.dtrajs, args.trajs, args.n_clusters
 
 
 def __rm(filename):
@@ -45,39 +50,15 @@ def __cleanupFiles(trajWildcard, cleanupClusterCenters=True):
     if cleanupClusterCenters:
         __rmFiles("discretized/clusterCenter*")
 
-lagtimes = list(range(1, 200, 20))
-nLags = len(lagtimes)
-nclusters = 100
 
-parameters = estimateDG.Parameters(ntrajs=None,
-                                   length=None,
-                                   lagtime=1,
-                                   nclusters=nclusters,
-                                   nruns=1,
-                                   skipFirstSteps=0,
-                                   useAllTrajInFirstRun=True,
-                                   computeDetailedBalance=True,
-                                   trajWildcard="traj_*",
-                                   folderWithTraj="allTrajs",
-                                   lagtimes=[1, 10, 25, 50],
-                                   clusterCountsThreshold=0)
-
-if not os.path.exists("autoCorr.npy"):
-    workingControlFile = "control_MSM.conf"
-    nWorkingTrajs = None
-    bootstrap = False
-    origFilesWildcard = os.path.join(parameters.folderWithTraj, parameters.trajWildcard)
-    estimateDG.__prepareWorkingControlFile(parameters.lagtime, parameters.nclusters, parameters.folderWithTraj, parameters.trajWildcard, workingControlFile, parameters.lagtimes, parameters.clusterCountsThreshold)
-    copiedFiles = estimateDG.copyWorkingTrajectories(origFilesWildcard, parameters.length, nWorkingTrajs, bootstrap, parameters.skipFirstSteps)
-    clusteringObject = cluster.Cluster(parameters.nclusters, parameters.folderWithTraj, parameters.trajWildcard, alwaysCluster=False)
-    clusteringObject.clusterTrajectories()
+def calculateAutoCorrelation(lagtimes, discretized_trajs, nclusters, nLags):
     C = np.zeros((nclusters, nLags))
     Ci = np.zeros((nclusters, nLags))
     Cf = np.zeros((nclusters, nLags))
     autoCorr = np.zeros((nclusters, nLags))
     N = 0
     M = np.zeros(nLags)
-    dtrajs = glob.glob("discretized/traj*")
+    dtrajs = glob.glob(os.path.join(discretized_trajs, "traj*"))
     for trajectory in dtrajs:
         traj = np.loadtxt(trajectory, dtype=int)
         Nt = traj.size
@@ -100,30 +81,79 @@ if not os.path.exists("autoCorr.npy"):
     autoCorr /= N
     autoCorr /= var
     np.save("autoCorr.npy", autoCorr)
-    __cleanupFiles(parameters.trajWildcard, False)
-else:
-    autoCorr = np.load("autoCorr.npy")
+    return autoCorr
 
-clusterCenters = np.loadtxt("clusterCenters_2.dat")
-writePDB(clusterCenters, autoCorr[:,-1])
-# plt.imshow(autoCorr, extent=[0, lagtimes[-1], 0, nclusters])
-# plt.colorbar()
-print("Clusters with more than 0.2 autocorrelation")
-size2 = np.where(autoCorr[:,-1] > 0.2)[0].size
-print(size2, size2 / float(nclusters))
-print("Clusters with more than 0.1 autocorrelation")
-size1 = np.where(autoCorr[:,-1] > 0.1)[0].size
-print(size1, size1 / float(nclusters))
-threshold = 0.2
 
-if threshold < 1:
-    filtered = np.where(autoCorr[:,-1] > threshold)[0]
-    print(filtered)
-    print(autoCorr[filtered,-1])
-else:
-    filtered = list(range(nclusters))
-axes = plt.plot(lagtimes, autoCorr.T[:,filtered])
-[ax.set_label("Cluster %d" % i) for i, ax in zip(filtered, axes)]
-plt.legend()
-plt.savefig("autoCorr_thres0-2.png")
-plt.show()
+def create_plots(autoCorr, plots_path, save_plot, show_plot, nclusters, lagtimes, threshold=2):
+    if threshold < 1:
+        fig_filename = "autoCorr_thres_%s.png" % str(threshold).replace(".", "_")
+        filtered = np.where(autoCorr[:, -1] > threshold)[0]
+        if len(filtered) == 0:
+            raise ValueError("The threshold specified is too strict, no states found above it")
+    else:
+        fig_filename = "autoCorr_no_thres.png"
+        filtered = list(range(nclusters))
+    axes = plt.plot(lagtimes, autoCorr.T[:, filtered])
+    plt.xlabel("Lagtime")
+    plt.title("Autocorrelation of membership function")
+    if len(filtered) < 20:
+        for i, ax in zip(filtered, axes):
+            ax.set_label("Cluster %d" % i)
+        plt.legend()
+    if save_plot:
+        plt.savefig(os.path.join(plots_path, fig_filename))
+    if show_plot:
+        plt.show()
+
+
+def main(lagtime, clusters_file, disctraj, trajs, n_clusters, plots_path, save_plot, show_plot, lagtime_resolution=20):
+    lagtimes = list(range(1, lagtime, lagtime_resolution))
+    n_lags = len(lagtimes)
+    if disctraj is None:
+        clusteringObject = cluster.Cluster(n_clusters, trajs, "traj*", alwaysCluster=False)
+        if clusters_file is not None:
+            # only assign
+            utilities.makeFolder(clusteringObject.discretizedFolder)
+            clusteringObject.clusterCentersFile = clusters_file
+        clusteringObject.clusterTrajectories()
+        disctraj = clusteringObject.discretizedFolder
+        clusterCenters = clusteringObject.clusterCenters
+    else:
+        clusterCenters = np.loadtxt(clusters_file)
+    print("Calculating autocorrelation...")
+    autoCorr = calculateAutoCorrelation(lagtimes, disctraj, n_clusters, n_lags)
+    # __cleanupFiles(parameters.trajWildcard, False)
+
+    utilities.write_PDB_clusters(np.vstack((clusterCenters.T, np.abs(autoCorr[:, -1]))).T, use_beta=True, title="cluster_autoCorr.pdb")
+    print("Clusters over correlation time limit")
+    correlation_limit = np.exp(-1)
+    states2 = np.where(autoCorr[:, -1] > correlation_limit)[0]
+    size2 = states2.size
+    if states2:
+        print(" ".join(map(str, states2)))
+    print("Number of clusters:", size2, ", %.2f%% of the total" % (100*size2 / float(n_clusters)))
+    print("Clusters with more than 0.1 autocorrelation")
+    states1 = np.where(autoCorr[:, -1] > 0.1)[0]
+    size1 = states1.size
+    if states1:
+        print(" ".join(map(str, states1)))
+    print("Number of clusters:", size1, ", %.2f%% of the total" % (100*size1 / float(n_clusters)))
+    if size2 > 0:
+        print("Correlation time not achieved at lagtime %d" % lagtime)
+    else:
+        for i in range(len(lagtimes)):
+            states = np.where(autoCorr[:, -i-1] > correlation_limit)[0]
+            if len(states):
+                string_states = ", ".join(map(str, states))
+                print("Correlation time %d, for states: %s" % (lagtimes[-i], string_states))
+                break
+
+    if plots_path is None:
+        plots_path = ""
+    else:
+        utilities.makeFolder(plots_path)
+    create_plots(autoCorr, plots_path, save_plot, show_plot, n_clusters, lagtimes, threshold=2.0)
+
+if __name__ == "__main__":
+    clusters, lagtime_upper, output_plots_path, save_plots, show_plots, dtraj_path, trajs_path, num_clusters = parse_arguments()
+    main(lagtime_upper, clusters, dtraj_path, trajs_path, num_clusters, output_plots_path, save_plots, show_plots)
