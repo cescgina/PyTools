@@ -63,7 +63,7 @@ def main(metricCol, lig_resname, nTrajs, filter_val, stride, atomId, saving_freq
     print("Min value for metric", minMetric, namesPDB[minInd])
 
     with open("conformation_data.dat", "w") as fw:
-        fw.write("PDB name      Epoch Trajectory   Snapshot   COM x       y       x     Metric\n")
+        fw.write("PDB name      Epoch Trajectory   Snapshot   COM x       y       z     Metric\n")
         for j, name in enumerate(namesPDB):
             info = [name.rjust(8)]+[str(x).rjust(10) for x in confData[j]]+[str(np.round(d, 3)).rjust(7) for d in data[j, :-1]] + [str(np.round(data[j, -1], 2)).rjust(10)]
             fw.write("{:s} {:s} {:s} {:s} {:s} {:s} {:s} {:s}\n".format(*tuple(info)))
