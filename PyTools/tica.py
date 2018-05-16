@@ -53,11 +53,11 @@ def get_coords(conformation, atom, lig_name):
 
 
 def find_representative_strucutures(folders, numClusters, nTraj, clusterCenters, projectedUniq, dtrajs):
-    centersInfo = {x: {"structure": None, "minDist": 1e6} for x in range(numClusters)}
+    centersInfo = {x: {"structure": None, "minDist": 1e6} for x in list(range(numClusters))}
     for i, epoch in enumerate(folders):
         for iTraj, traj in enumerate(projectedUniq[i*nTraj:(i+1)*nTraj]):
             for nSnap, snapshot in enumerate(traj):
-                clusterInd = dtrajs[i*nTraj+iTraj][nSnap]
+                clusterInd = dtrajs[i*nTraj+iTraj][nSnap] 
                 dist = np.sqrt(np.sum((clusterCenters[clusterInd]-snapshot)**2))
                 if dist < centersInfo[clusterInd]['minDist']:
                     centersInfo[clusterInd]['minDist'] = dist
@@ -75,17 +75,18 @@ def projectTICATrajs(folders, folderPath, ligand_resname, atomId, stride_conform
         trajFiles.sort(key=lambda x: int(x[x.rfind("_")+1:-4]))
         for trajName in trajFiles:
             trajNum = int(trajName[trajName.rfind("_")+1:-4])
-            trajFile = glob.glob(os.path.join(folderPath, "%s/trajectory_%d*" % (epoch, trajNum)))[0]
+            trajFile = glob.glob(os.path.join(folderPath, "%s/trajectory_%d.pdb" % (epoch, trajNum)))[0]
             snapshotsPDB = utilities.getSnapshots(trajFile, topology=topology)
             trajCOM = [get_coords(snapshot, atomId, ligand_resname) for snapshot in itertools.islice(snapshotsPDB, 0, None, stride_conformations)]
             trajsUniq.append(trajCOM)
             trajLoad = np.loadtxt(trajName)
             if len(trajLoad.shape) == 1:
                 trajLoad = trajLoad[np.newaxis, :]
+            #De totes agafa les 3 primeres columnes totes les files
             projectedTraj = tica.transform(trajLoad[::stride_conformations])[:, :nTICs]
             projectedUniq.append(projectedTraj)
             if writeFiles:
-                np.savetxt("tica_COM/traj_%s_%d.dat" % (epoch, trajNum), np.hstack((np.array(trajCOM), projectedTraj)),
+               np.savetxt("tica_COM/traj_%s_%d.dat" % (epoch, trajNum), np.hstack((np.array(trajCOM), projectedTraj)),
                            header="COM coordinates x\ty\tz\t TICA coordinates\t"+"\t".join(["TICA %d" % tic for tic in range(nTICs)]) + "\n")
     return trajsUniq, projectedUniq
 
@@ -101,11 +102,12 @@ def writeCentersInfo(centersInfo, folderPath, ligand_resname, nTICs, numClusters
     for clusterNum in centersInfo:
         epoch, trajNum, snap = centersInfo[clusterNum]['structure']
         COM_list.append(trajsUniq[int(epoch)*nTraj+(trajNum-1)][snap])
-        trajFile = glob.glob(os.path.join(folderPath, "%s/trajectory_%d*" % (epoch, trajNum)))
+        trajFile = glob.glob(os.path.join(folderPath, "%s/trajectory_%d.pdb" % (epoch, trajNum)))
+        trajFile = trajFile[0]
         snapshots = utilities.getSnapshots(trajFile, topology=topology)
         pdb_object = atomset.PDB()
         pdb_object.initialise(snapshots[snap], resname=ligand_resname)
-        pdb_object.writePDB(os.path.join(clustersCentersFolder, "cluster_%d.pdb" % clusterNum), topology=topology_contents)
+        pdb_object.writePDB(str(os.path.join(str(clustersCentersFolder), "cluster_%d.pdb" % clusterNum)))
 
     distances = [[nC, centersInfo[nC]['minDist']] for nC in range(numClusters)]
     np.savetxt(os.path.join(clustersCentersFolder, "clusterDistances_%dcl_%dTICs.dat" % (numClusters, nTICs)), distances)
@@ -148,7 +150,6 @@ def make_TICA_decomposition(ticaObject, folders, folderPath, lag, overWriteObjec
             trajFiles.sort(key=lambda x: int(x[x.rfind("_")+1:-4]))
             for traj in trajFiles:
                 trajs.append(np.loadtxt(traj))
-
         tica = coor.tica(data=trajs, lag=lag, kinetic_map=kinetic_map, commute_map=commute_map)
         with open(ticaObject, "wb") as f:
             pickle.dump(tica, f)
@@ -200,22 +201,20 @@ def main(nTICs, numClusters, ligand_resname, lag, nTraj, n_steps, out_path=None,
 
     if not os.path.exists(os.path.join(folderPath, "0/repeatedExtractedCoordinates/"))or repeat:
         # Extract ligand and alpha carbons coordinates
-        extractCoords.main(folder_name=curr_folder, lig_resname=ligand_resname, numtotalSteps=n_steps, protein_CA=True, non_Repeat=False)
+        extractCoords.main(folder_name=curr_folder, lig_resname=ligand_resname, numtotalSteps=n_steps, protein_CA=False, non_Repeat=False, sidechains=True, sidechain_folder="../output_clustering/initial*", enforceSequential_run=0, nProcessors=1)
 
     tica = make_TICA_decomposition(ticaObject, folders, folderPath, lag)
 
     # Select the desired number of independent components from the full
     # decomposition
-    projected = tica.get_output(dimensions=range(nTICs))
+    projected = tica.get_output(dimensions=list(range(nTICs)))
     write_TICA_trajs(trajectoryFolder, projected, trajectoryBasename, folders, nTraj)
     clusteringObject = cluster_TICA_space(numClusters, trajectoryFolder, trajectoryBasename, stride, clusterCountsThreshold)
-
     trajsUniq, projectedUniq = projectTICATrajs(folders, folderPath, ligand_resname, atomId, stride_conformation, nTICs, tica, topology=topology)
 
     clusterCenters = clusteringObject.clusterCenters
     dtrajs = clusteringObject.assignNewTrajectories(projectedUniq)
     centersInfo = find_representative_strucutures(folders, numClusters, nTraj, clusterCenters, projectedUniq, dtrajs)
-
     writeCentersInfo(centersInfo, folderPath, ligand_resname, nTICs, numClusters, trajsUniq, clustersCentersFolder, nTraj, topology=topology)
     if plotTICA:
         make_TICA_plot(nTICs, projected)
