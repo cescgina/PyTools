@@ -10,7 +10,6 @@ from AdaptivePELE.utilities import utilities
 import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 
-
 def parse_arguments():
     """
         Create command-line interface
@@ -135,7 +134,7 @@ def main(lagtime, clusters_file, disctraj, trajs, n_clusters, plots_path, save_p
     print("Clusters with more than 0.1 autocorrelation")
     states1 = np.where(autoCorr[:, -1] > 0.1)[0]
     size1 = states1.size
-    if states1:
+    if states1.tolist():
         print(" ".join(map(str, states1)))
     print("Number of clusters:", size1, ", %.2f%% of the total" % (100*size1 / float(n_clusters)))
     if size2 > 0:
