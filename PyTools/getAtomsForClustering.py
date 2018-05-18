@@ -50,7 +50,7 @@ def get_vector_direction(coords):
     minDpoint = None
     n_points = coords.shape[0]
     distances_to_max = np.argsort(np.linalg.norm(coords-max_point, axis=1))
-    for i in distances_to_max[n_points/2:-2]:
+    for i in distances_to_max[n_points//2:-2]:
         dist = np.linalg.norm(np.cross(coords[i]-min_point, coords[i]-max_point))/den
         if dist < minD:
             minD = dist
