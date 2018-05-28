@@ -107,7 +107,7 @@ def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plot
                 axes[j//4][(j//2) % 2, j % 2].set_xlabel("Distance to minimum")
                 axes[j//4][(j//2) % 2, j % 2].set_ylabel("Eigenvector %d" % (j+1))
             if save_plots:
-                for fg in figures:
+                for j, fg in enumerate(figures):
                     fg.savefig(os.path.join(eigenPlots, "eigenvector_%d_run_%d%s.png" % (j+1, i, filter_str)))
         if plotPMF:
             data = np.loadtxt(os.path.join(destFolder, "pmf_xyzg_%d.dat" % i))
