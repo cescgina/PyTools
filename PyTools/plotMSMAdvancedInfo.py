@@ -109,6 +109,11 @@ def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plot
             if save_plots:
                 for j, fg in enumerate(figures):
                     fg.savefig(os.path.join(eigenPlots, "eigenvector_%d_run_%d%s.png" % (j+1, i, filter_str)))
+                plt.figure()
+                plt.scatter(distance, L[0])
+                plt.xlabel("Distance to minimum")
+                plt.ylabel("Eigenvector 1")
+                plt.savefig(os.path.join(eigenPlots, "eigenvector_1_alone_run_%d%s.png" % (i, filter_str)))
         if plotPMF:
             data = np.loadtxt(os.path.join(destFolder, "pmf_xyzg_%d.dat" % i))
             g = data[:, -1]
@@ -148,12 +153,12 @@ if __name__ == "__main__":
         if resname is None:
             raise ValueError("Resname not specified!!")
         pdb_native = atomset.PDB()
-        pdb_native.initialise(native, resname=resname)
+        pdb_native.initialise(u"%s"  % native, resname=resname)
         minim = pdb_native.getCOM()
     if lagtime_list is not None and clusters_list is not None:
-        root, leaf = os.path_MSM.split(path_MSM)
+        root, leaf = os.path.split(path_MSM)
         for tau, k in itertools.product(lagtime_list, clusters_list):
-            outPath = "".join([root, os.path_MSM.join("%dlag" % tau, "%dcl" % k), leaf])
+            outPath = "".join([root, os.path.join("%dlag" % tau, "%dcl" % k), leaf])
             main(n_eigen, runs, size_m, output, plotEigen, plotGMRQs, plotPMFs, clusters_list, lagtime_list, minim, write_plots, show_plots, filter_clusters, outPath)
     else:
         main(n_eigen, runs, size_m, output, plotEigen, plotGMRQs, plotPMFs, clusters_list, lagtime_list, minim, write_plots, show_plots, filter_clusters, path_MSM)
