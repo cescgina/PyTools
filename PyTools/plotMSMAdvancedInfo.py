@@ -41,9 +41,10 @@ def parse_arguments():
 def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plotPMF, clusters, lagtimes, minPos, save_plots, showPlots, filtered, destFolder):
     if save_plots and outputFolder is None:
         outputFolder = "plots_MSM"
-    eigenPlots = os.path.join(outputFolder, "eigenvector_plots")
-    GMRQPlots = os.path.join(outputFolder, "GMRQ_plots")
-    PMFPlots = os.path.join(outputFolder, "PMF_plots")
+    if save_plots:
+        eigenPlots = os.path.join(outputFolder, "eigenvector_plots")
+        GMRQPlots = os.path.join(outputFolder, "GMRQ_plots")
+        PMFPlots = os.path.join(outputFolder, "PMF_plots")
     if save_plots and not os.path.exists(outputFolder):
         os.makedirs(outputFolder)
     if filtered is not None:
