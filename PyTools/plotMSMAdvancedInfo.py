@@ -158,7 +158,7 @@ if __name__ == "__main__":
     if lagtime_list is not None and clusters_list is not None:
         root, leaf = os.path.split(path_MSM)
         for tau, k in itertools.product(lagtime_list, clusters_list):
-            outPath = "".join([root, os.path.join("%dlag" % tau, "%dcl" % k), leaf])
+            outPath = os.path.join(root, "%dlag" % tau, "%dcl" % k, leaf)
             main(n_eigen, runs, size_m, output, plotEigen, plotGMRQs, plotPMFs, clusters_list, lagtime_list, minim, write_plots, show_plots, filter_clusters, outPath)
     else:
         main(n_eigen, runs, size_m, output, plotEigen, plotGMRQs, plotPMFs, clusters_list, lagtime_list, minim, write_plots, show_plots, filter_clusters, path_MSM)
