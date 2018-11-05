@@ -41,11 +41,12 @@ def parse_arguments():
 def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plotPMF, clusters, lagtimes, minPos, save_plots, showPlots, filtered, destFolder):
     if save_plots and outputFolder is None:
         outputFolder = "plots_MSM"
-    eigenPlots = os.path.join(outputFolder, "eigenvector_plots")
-    GMRQPlots = os.path.join(outputFolder, "GMRQ_plots")
-    PMFPlots = os.path.join(outputFolder, "PMF_plots")
-    if save_plots and not os.path.exists(outputFolder):
-        os.makedirs(outputFolder)
+    if outputFolder is not None:
+        eigenPlots = os.path.join(outputFolder, "eigenvector_plots")
+        GMRQPlots = os.path.join(outputFolder, "GMRQ_plots")
+        PMFPlots = os.path.join(outputFolder, "PMF_plots")
+        if save_plots and not os.path.exists(outputFolder):
+            os.makedirs(outputFolder)
     if filtered is not None:
         filter_str = "_filtered"
     else:
@@ -106,6 +107,13 @@ def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plot
                 axes[j//4][(j//2) % 2, j % 2].scatter(distance, row)
                 axes[j//4][(j//2) % 2, j % 2].set_xlabel("Distance to minimum")
                 axes[j//4][(j//2) % 2, j % 2].set_ylabel("Eigenvector %d" % (j+1))
+            Q = msm_object.count_matrix_full.diagonal()/msm_object.count_matrix_full.sum()
+            plt.figure()
+            plt.scatter(distance, Q)
+            plt.xlabel("Distance to minimum")
+            plt.ylabel("Metastability")
+            if save_plots:
+                plt.savefig(os.path.join(eigenPlots, "Q_run_%d%s.png" % (i, filter_str)))
             if save_plots:
                 for j, fg in enumerate(figures):
                     fg.savefig(os.path.join(eigenPlots, "eigenvector_%d_run_%d%s.png" % (j+1, i, filter_str)))
@@ -153,7 +161,7 @@ if __name__ == "__main__":
         if resname is None:
             raise ValueError("Resname not specified!!")
         pdb_native = atomset.PDB()
-        pdb_native.initialise(u"%s"  % native, resname=resname)
+        pdb_native.initialise(u"%s" % native, resname=resname)
         minim = pdb_native.getCOM()
     if lagtime_list is not None and clusters_list is not None:
         root, leaf = os.path.split(path_MSM)
