@@ -1,12 +1,13 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 from builtins import range
 import os
-import numpy as np
+import glob
 import argparse
 import itertools
+import numpy as np
 from AdaptivePELE.utilities import utilities
 from AdaptivePELE.atomset import atomset
-from AdaptivePELE.freeEnergies import computeDeltaG
+from AdaptivePELE.freeEnergies import computeDeltaG, getRepresentativeStructures as getR
 from msmtools.analysis import rdl_decomposition
 import matplotlib.pyplot as plt
 plt.style.use("ggplot")
@@ -34,11 +35,13 @@ def parse_arguments():
     parser.add_argument("--path", type=str, help="Path to the folder with the MSM data")
     parser.add_argument("--native", type=str, default=None, help="Path to the native structure to extract the minimum position")
     parser.add_argument("--resname", type=str, default=None, help="Resname of the ligand in the native pdb")
+    parser.add_argument("--SASA_col", type=int, default=None, help="Column of the SASA in the reports (starting to count from 1)")
+    parser.add_argument("--path_report", type=str, help="Path to the folder with the reports")
     args = parser.parse_args()
-    return args.nEigen, args.clusters, args.lagtimes, args.nRuns, args.minima, args.o, args.m, args.plotEigenvectors, args.plotGMRQ, args.plotPMF, args.savePlots, args.showPlots, args.filter, args.path, args.native, args.resname
+    return args.nEigen, args.clusters, args.lagtimes, args.nRuns, args.minima, args.o, args.m, args.plotEigenvectors, args.plotGMRQ, args.plotPMF, args.savePlots, args.showPlots, args.filter, args.path, args.native, args.resname, args.SASA_col-1, args.path_report
 
 
-def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plotPMF, clusters, lagtimes, minPos, save_plots, showPlots, filtered, destFolder):
+def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plotPMF, clusters, lagtimes, minPos, save_plots, showPlots, filtered, destFolder, sasa_col, path_to_report):
     if save_plots and outputFolder is None:
         outputFolder = "plots_MSM"
     if outputFolder is not None:
@@ -59,13 +62,24 @@ def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plot
         os.makedirs(PMFPlots)
     minPos = np.array(minPos)
     GMRQValues = {}
-    print("Running from " + destFolder)
+    print("Running from", destFolder)
     if plotGMRQ:
         GMRQValues = []
 
     if not os.path.exists(os.path.join(destFolder, "eigenvectors")):
         os.makedirs(os.path.join(destFolder, "eigenvectors"))
     for i in range(nRuns):
+        if sasa_col is not None:
+            representatives_files = os.path.join(destFolder, "representative_structures/representative_structures_%d.dat" % i)
+            clusters_info = np.loadtxt(representatives_files, skiprows=1, dtype=int)
+            extract_info = getR.getExtractInfo(clusters_info)
+            sasa = [0 for _ in clusters_info]
+            for trajFile, extraInfo in extract_info.items():
+                report_filename = glob.glob(os.path.join(path_to_report, "%d", "report*_%d") % trajFile)[0]
+                report = utilities.loadtxtfile(report_filename)
+                for pair in extraInfo:
+                    sasa[pair[0]] = report[pair[1], sasa_col]
+
         titleVar = "%s, run %d" % (destFolder, i)
         if plotGMRQ or plotEigenvectors:
             msm_object = utilities.readClusteringObject(os.path.join(destFolder, "MSM_object_%d.pkl" % i))
@@ -80,6 +94,8 @@ def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plot
                 volume = volume[filtered]
                 clusters = clusters[filtered]
                 distance = distance[filtered]
+                if sasa_col is not None:
+                    sasa = sasa[filtered]
         if plotEigenvectors:
             if clusters.size != msm_object.stationary_distribution.size:
                 mat = computeDeltaG.reestimate_transition_matrix(msm_object.count_matrix_full)
@@ -135,12 +151,17 @@ def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plot
             axarr[1, 0].scatter(distance, g)
             axarr[0, 1].scatter(distance, volume)
             axarr[0, 0].scatter(g, volume)
+            if sasa_col is not None:
+                axarr[1, 1].scatter(sasa, g)
             axarr[1, 0].set_xlabel("Distance to minima")
             axarr[1, 0].set_ylabel("PMF")
             axarr[0, 1].set_xlabel("Distance to minima")
             axarr[0, 1].set_ylabel("Volume")
             axarr[0, 0].set_xlabel("PMF")
             axarr[0, 0].set_ylabel("Volume")
+            if sasa_col is not None:
+                axarr[1, 1].set_xlabel("SASA")
+                axarr[1, 1].set_ylabel("PMF")
             if save_plots:
                 f.savefig(os.path.join(PMFPlots, "pmf_run_%d%s.png" % (i, filter_str)))
     if plotGMRQ:
@@ -156,7 +177,7 @@ def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plot
         plt.show()
 
 if __name__ == "__main__":
-    n_eigen, clusters_list, lagtime_list, runs, minim, output, size_m, plotEigen, plotGMRQs, plotPMFs, write_plots, show_plots, filter_clusters, path_MSM, native, resname = parse_arguments()
+    n_eigen, clusters_list, lagtime_list, runs, minim, output, size_m, plotEigen, plotGMRQs, plotPMFs, write_plots, show_plots, filter_clusters, path_MSM, native, resname, SASA_col, path_report = parse_arguments()
     if native is not None:
         if resname is None:
             raise ValueError("Resname not specified!!")
@@ -167,6 +188,6 @@ if __name__ == "__main__":
         root, leaf = os.path.split(path_MSM)
         for tau, k in itertools.product(lagtime_list, clusters_list):
             outPath = os.path.join(root, "%dlag" % tau, "%dcl" % k, leaf)
-            main(n_eigen, runs, size_m, output, plotEigen, plotGMRQs, plotPMFs, clusters_list, lagtime_list, minim, write_plots, show_plots, filter_clusters, outPath)
+            main(n_eigen, runs, size_m, output, plotEigen, plotGMRQs, plotPMFs, clusters_list, lagtime_list, minim, write_plots, show_plots, filter_clusters, outPath, SASA_col, path_report)
     else:
-        main(n_eigen, runs, size_m, output, plotEigen, plotGMRQs, plotPMFs, clusters_list, lagtime_list, minim, write_plots, show_plots, filter_clusters, path_MSM)
+        main(n_eigen, runs, size_m, output, plotEigen, plotGMRQs, plotPMFs, clusters_list, lagtime_list, minim, write_plots, show_plots, filter_clusters, path_MSM, SASA_col, path_report)

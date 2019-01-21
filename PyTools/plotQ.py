@@ -53,12 +53,12 @@ def __cleanupFiles(trajWildcard, cleanupClusterCenters=True):
 
 def create_plots(autoCorr, plots_path, save_plot, show_plot, nclusters, lagtimes, threshold=2):
     if threshold < 1:
-        fig_filename = "autoCorr_thres_%s.png" % str(threshold).replace(".", "_")
+        fig_filename = "metastability_thres_%s.png" % str(threshold).replace(".", "_")
         filtered = np.where(autoCorr[:, -1] > threshold)[0]
         if len(filtered) == 0:
             raise ValueError("The threshold specified is too strict, no states found above it")
     else:
-        fig_filename = "autoCorr_no_thres.png"
+        fig_filename = "metastability_no_thres.png"
         filtered = list(range(nclusters))
     axes = plt.plot(lagtimes, autoCorr[:, filtered])
     plt.xlabel("Lagtime")
@@ -76,7 +76,7 @@ def create_plots(autoCorr, plots_path, save_plot, show_plot, nclusters, lagtimes
 def main(lagtimes, clusters_file, disctraj, trajs, n_clusters, plots_path, save_plot, show_plot, lagtime_resolution=20):
     if disctraj is not None:
         dtraj_files = glob.glob(os.path.join(disctraj, "*traj*.disctraj"))
-        dtrajs = [np.loadtxt(f, dtype=int) for f  in dtraj_files]
+        dtrajs = [np.loadtxt(f, dtype=int) for f in dtraj_files]
         clusterCenters = np.loadtxt(clusters_file)
     else:
         clusteringObject = cluster.Cluster(n_clusters, trajs, "traj*", alwaysCluster=False, discretizedPath=disctraj)
