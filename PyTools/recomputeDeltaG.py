@@ -16,11 +16,12 @@ def parse_arguments():
     parser.add_argument("path", type=str, help="Path to the folder with the MSM data")
     parser.add_argument("output", default=None, help="Path of the folder where to store the new results")
     parser.add_argument("-n", "--nRuns", type=int, default=1, help="Number of independent calculations to plot")
+    parser.add_argument("--divide_volume", action="store_true", help="Wether to divide the probability by the volumes")
     args = parser.parse_args()
-    return args.nRuns, args.output, args.path
+    return args.nRuns, args.output, args.path, args.divide_volume
 
 
-def main(nRuns, output, path):
+def main(nRuns, output, path, divide_volume):
     utilities.makeFolder(output)
     MSM_template = os.path.join(path, "MSM_object_%d.pkl")
     volumes_template = os.path.join(path, "volumeOfClusters_%d.dat")
@@ -39,7 +40,7 @@ def main(nRuns, output, path):
         microstateVolume = np.loadtxt(volumes)
         MSMObject = DG.loadMSM(MSM)
         pi, cluster_centers = DG.ensure_connectivity(MSMObject, allClusters)
-        gpmf, string = DG.calculate_pmf(microstateVolume, pi)
+        gpmf, string = DG.calculate_pmf(microstateVolume, pi, divide_volume=divide_volume)
         print(string)
 
         pmf_xyzg = np.hstack((cluster_centers, np.expand_dims(gpmf, axis=1)))
@@ -49,5 +50,5 @@ def main(nRuns, output, path):
         shutil.copy(clusters, output_clusters_template % i)
 
 if __name__ == "__main__":
-    n, out, folder = parse_arguments()
-    main(n, out, folder)
+    n, out, folder, divide = parse_arguments()
+    main(n, out, folder, divide)
