@@ -41,6 +41,18 @@ def parse_arguments():
     return args.nEigen, args.clusters, args.lagtimes, args.nRuns, args.minima, args.o, args.m, args.plotEigenvectors, args.plotGMRQ, args.plotPMF, args.savePlots, args.showPlots, args.filter, args.path, args.native, args.resname, args.SASA_col-1, args.path_report
 
 
+def getSASAvalues(representative_file, sasa_col, path_to_report):
+    clusters_info = np.loadtxt(representative_file, skiprows=1, dtype=int)
+    extract_info = getR.getExtractInfo(clusters_info)
+    sasa = [0 for _ in clusters_info]
+    for trajFile, extraInfo in extract_info.items():
+        report_filename = glob.glob(os.path.join(path_to_report, "%d", "report*_%d") % trajFile)[0]
+        report = utilities.loadtxtfile(report_filename)
+        for pair in extraInfo:
+            sasa[pair[0]] = report[pair[1], sasa_col]
+    return sasa
+
+
 def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plotPMF, clusters, lagtimes, minPos, save_plots, showPlots, filtered, destFolder, sasa_col, path_to_report):
     if save_plots and outputFolder is None:
         outputFolder = "plots_MSM"
@@ -71,14 +83,7 @@ def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plot
     for i in range(nRuns):
         if sasa_col is not None:
             representatives_files = os.path.join(destFolder, "representative_structures/representative_structures_%d.dat" % i)
-            clusters_info = np.loadtxt(representatives_files, skiprows=1, dtype=int)
-            extract_info = getR.getExtractInfo(clusters_info)
-            sasa = [0 for _ in clusters_info]
-            for trajFile, extraInfo in extract_info.items():
-                report_filename = glob.glob(os.path.join(path_to_report, "%d", "report*_%d") % trajFile)[0]
-                report = utilities.loadtxtfile(report_filename)
-                for pair in extraInfo:
-                    sasa[pair[0]] = report[pair[1], sasa_col]
+            sasa = getSASAvalues(representatives_files, sasa_col, path_to_report)
 
         titleVar = "%s, run %d" % (destFolder, i)
         if plotGMRQ or plotEigenvectors:
