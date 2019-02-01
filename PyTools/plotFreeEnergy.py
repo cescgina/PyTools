@@ -15,11 +15,12 @@ def parse_arguments():
     desc = "Plot 2-D PMF"
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument("path", type=str, help="Path to the folder with the MSM data")
+    parser.add_argument("--path_save", type=str, default=None, help="Path to the folder with the MSM data")
     args = parser.parse_args()
-    return args.path
+    return args.path, args.path_save
 
 
-def main(path_files):
+def main(path_files, path_to_save):
     files = glob.glob(os.path.join(path_files, "traj_*.dat"))
     Y = []
     for f in files:
@@ -34,19 +35,25 @@ def main(path_files):
     mplt.plot_free_energy(xall, yall, cmap="Spectral")
     plt.xlabel("x")
     plt.ylabel("y")
+    if path_to_save is not None:
+        plt.savefig(os.path.join(path_to_save, "x-y_decomposition.png"))
 
     plt.figure(figsize=(8, 5))
     mplt.plot_free_energy(xall, zall, cmap="Spectral")
     plt.xlabel("x")
     plt.ylabel("z")
+    if path_to_save is not None:
+        plt.savefig(os.path.join(path_to_save, "x-z_decomposition.png"))
 
     plt.figure(figsize=(8, 5))
     mplt.plot_free_energy(yall, zall, cmap="Spectral")
     plt.xlabel("y")
     plt.ylabel("z")
+    if path_to_save is not None:
+        plt.savefig(os.path.join(path_to_save, "y-z_decomposition.png"))
     plt.show()
 
 
 if __name__ == "__main__":
-    path = parse_arguments()
-    main(path)
+    path, save_path = parse_arguments()
+    main(path, save_path)
