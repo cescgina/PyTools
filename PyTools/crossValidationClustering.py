@@ -3,8 +3,9 @@ import os
 import argparse
 import matplotlib.pyplot as plt
 import numpy as np
+import pyemma.coordinates as coor
+import pyemma.msm as msm
 from AdaptivePELE.freeEnergies import cluster
-from AdaptivePELE.freeEnergies import estimate
 plt.switch_backend("pdf")
 plt.style.use("ggplot")
 
@@ -17,31 +18,38 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument("-l", "--lagtimes", type=int, nargs="*", help="Lagtimes to analyse")
     parser.add_argument("-m", type=int, default=6, help="Number of eigenvalues to sum in the GMRQ")
+    parser.add_argument("--tica", action="store_true", help="Whether to use TICA before clustering")
+    parser.add_argument("--tica_lag", type=int, default=30, help="Lagtime for the TICA estimation")
+    parser.add_argument("--out_path", type=str, default="", help="Path to store the output")
     args = parser.parse_args()
-    return args.lagtimes, args.m
+    return args.lagtimes, args.m, args.tica, args.tica_lag, args.out_path
 
 
-def main(lagtimes, m):
+def main(lagtimes, m, tica_lag, tica, output_path):
     clusters = list(range(10, 500, 20))
     trajectoryFolder = "allTrajs"
     trajectoryBasename = "traj*"
     stride = 1
-
-    if not os.path.exists("scores"):
-        os.makedirs("scores")
-
+    if output_path and not os.path.exists(output_path):
+        os.makedirs(output_path)
+    scores_path = os.path.join(output_path, "scores")
+    if not os.path.exists(scores_path):
+        os.makedirs(scores_path)
+    data, _ = cluster.loadTrajFiles(trajectoryFolder, trajectoryBasename)
+    if tica:
+        tica_obj = coor.tica(data, lag=tica_lag, var_cutoff=0.9, kinetic_map=True)
+        print('TICA dimension ', tica_obj.dimension())
+        data = tica_obj.get_output()
     for tau in lagtimes:
         scores = []
         scores_cv = []
+        print("Estimating MSM with %d lagtime" % tau)
         for k in clusters:
             print("Calculating scores with %d clusters" % k)
-            clusteringObject = cluster.Cluster(k, trajectoryFolder, trajectoryBasename, alwaysCluster=True, stride=stride)
-            clusteringObject.clusterTrajectories()
-            # clusteringObject.eliminateLowPopulatedClusters(clusterCountsThreshold)
+            # cluster data
+            cl = coor.cluster_kmeans(data=data, k=k, max_iter=500, stride=stride)
             try:
-                calculateMSM = estimate.MSM(error=False, dtrajs=clusteringObject.dtrajs)
-                calculateMSM.estimate(lagtime=tau, lagtimes=None)
-                MSM = calculateMSM.MSM_object
+                MSM = msm.estimate_markov_model(cl.dtrajs, tau)
                 print("MSM estimated on %d states" % MSM.nstates)
             except Exception:
                 print("Estimation error in %d clusters, %d lagtime" % (k, tau))
@@ -60,8 +68,8 @@ def main(lagtimes, m):
             except Exception:
                 print("Estimation error in %d clusters, %d lagtime" % (k, tau))
                 scores_cv.append(np.array([0, 0, 0, 0, 0]))
-        np.save(os.path.join("scores", "scores_lag_%d.npy" % tau), scores)
-        np.save(os.path.join("scores", "scores_cv_lag_%d.npy" % tau), scores_cv)
+        np.save(os.path.join(scores_path, "scores_lag_%d.npy" % tau), scores)
+        np.save(os.path.join(scores_path, "scores_cv_lag_%d.npy" % tau), scores_cv)
         mean_scores = [sc.mean() for sc in scores_cv]
         std_scores = [sc.std() for sc in scores_cv]
         plt.figure()
@@ -70,8 +78,8 @@ def main(lagtimes, m):
         plt.xlabel("Number of states")
         plt.ylabel("Score")
         plt.legend()
-        plt.savefig("scores_cv_lag_%d.png" % tau)
+        plt.savefig(os.path.join(output_path, "scores_cv_lag_%d.png" % tau))
 
 if __name__ == "__main__":
-    lags, GMRQ = parse_arguments()
-    main(lags, GMRQ)
+    lags, GMRQ, use_tica, lag_tica, out_path = parse_arguments()
+    main(lags, GMRQ, lag_tica, use_tica, out_path)
