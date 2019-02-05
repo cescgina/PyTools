@@ -35,6 +35,8 @@ def main(traj_path, top_file, traj_name, output_path, save_plot, show_plot):
     t_ref = md.load(top_file)
     if not os.path.exists(output_path):
         os.makedirs(output_path)
+    if not trajectories:
+        raise ValueError("No trajectories found in %s" % traj_path)
     for trajectory in trajectories:
         print("Processing trajectory %s" % trajectory)
         t = md.load(trajectory, top=top_file)
