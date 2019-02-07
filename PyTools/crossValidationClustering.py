@@ -17,16 +17,16 @@ def parse_arguments():
     desc = "Plot information related to an MSM"
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument("-l", "--lagtimes", type=int, nargs="*", help="Lagtimes to analyse")
+    parser.add_argument("-c", "--clusters", type=int, nargs="*", help="Number of clusters to analyse")
     parser.add_argument("-m", type=int, default=6, help="Number of eigenvalues to sum in the GMRQ")
     parser.add_argument("--tica", action="store_true", help="Whether to use TICA before clustering")
     parser.add_argument("--tica_lag", type=int, default=30, help="Lagtime for the TICA estimation")
     parser.add_argument("--out_path", type=str, default="", help="Path to store the output")
     args = parser.parse_args()
-    return args.lagtimes, args.m, args.tica, args.tica_lag, args.out_path
+    return args.lagtimes, args.m, args.tica, args.tica_lag, args.out_path, args.clusters
 
 
-def main(lagtimes, m, tica_lag, tica, output_path):
-    clusters = list(range(10, 500, 20))
+def main(lagtimes, clusters, m, tica_lag, tica, output_path):
     trajectoryFolder = "allTrajs"
     trajectoryBasename = "traj*"
     stride = 1
@@ -81,5 +81,5 @@ def main(lagtimes, m, tica_lag, tica, output_path):
         plt.savefig(os.path.join(output_path, "scores_cv_lag_%d.png" % tau))
 
 if __name__ == "__main__":
-    lags, GMRQ, use_tica, lag_tica, out_path = parse_arguments()
-    main(lags, GMRQ, lag_tica, use_tica, out_path)
+    lags, GMRQ, use_tica, lag_tica, out_path, cluster_list = parse_arguments()
+    main(lags, cluster_list, GMRQ, lag_tica, use_tica, out_path)
