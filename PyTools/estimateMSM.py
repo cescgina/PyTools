@@ -210,57 +210,57 @@ plt.xlabel("IC 1")
 plt.ylabel("IC 2")
 plt.legend(loc='best')
 plt.savefig("fes_pcca.png")
-if not os.path.exists("data"):
-    os.makedirs("data")
-else:
-    for f in os.listdir("data"):
-        os.remove(os.path.join("data", f))
-centersInfo = getCentersInfo(clustering.clustercenters, Y, trajFilenames, dtrajs)
-centersInfo_processed = []
-for cl in centersInfo:
-    epoch_num, traj_num, snapshot_num = centersInfo[cl]["structure"]
-    centersInfo_processed.append([cl, int(epoch_num), int(traj_num), int(snapshot_num)])
-extractInfo = getRepr.getExtractInfo(centersInfo_processed)
-# extractInfo is a dictionary organized as {[epoch, traj]: [cluster, snapshot]}
-cl_sets = {}
-for i_set, cl_list in enumerate(pcca_sets):
-    for cl in cl_list:
-        cl_sets[cl] = i_set + 1
-
-top_path = "/home/jgilaber/peptides_md/%s/simulation_peptides_%s_shorter/topologies/topology_0.pdb" % (peptide, peptide)
-top = utilities.getTopologyFile(top_path)
-rmsd_values = np.zeros(numClusters)
-rmsd_calc = RMSDCalculator.RMSDCalculator()
-PDB_initial = atomset.PDB()
-PDB_initial.initialise(top_path, type="PROTEIN", heavyAtoms=True)
-for pair in extractInfo:
-    snapshots = utilities.getSnapshots("/home/jgilaber/peptides_md/%s/simulation_peptides_%s_shorter/%d/trajectories_fixed_%d.xtc" % (peptide, peptide, pair[0], pair[1]))
-    for cl, n_snap in extractInfo[pair]:
-        if cl not in cl_sets:
-            filename = "data/cluster_%d.pdb" % cl
-        else:
-            filename = "data/cluster_%d_set_%d.pdb" % (cl, cl_sets[cl])
-        PDB = atomset.PDB()
-        PDB.initialise(snapshots[n_snap], heavyAtoms=True, type="PROTEIN", topology=top)
-        rmsd_val = rmsd_calc.computeRMSD(PDB_initial, PDB)
-        rmsd_values[cl] = rmsd_val
-        PDB.writePDB(filename)
-with open("rmsd_states.txt", "w") as fw:
-    fw.write("Cluster\tRSMD(A)\tProbability(%)\n")
-    for cl in range(numClusters):
-        if cl not in M.active_set:
-            prob = 0.00
-        else:
-            prob = 100*pi[np.where(M.active_set == cl)[0][0]]
-        fw.write("%d\t%.3f\t%.5f\n" % (cl, rmsd_values[cl], prob))
-prob = pi[np.argmin(rmsd_values[M.active_set])]
-kb = 0.0019872041
-T = 300
-dG = -kb*T*(np.log(np.max(pi))-np.log(prob))
-print("Estimation of the dG penalty for the solvated peptide", dG)
-f = plt.figure(figsize=(8, 5))
-ax = mplt.scatter_contour(cc_x, cc_y, rmsd_values, fig=f)
-plt.xlabel("IC 1")
-plt.ylabel("IC 2")
-f.suptitle("RMSD to the initial position")
-plt.savefig("rmsd_initial.png")
+# if not os.path.exists("data"):
+#     os.makedirs("data")
+# else:
+#     for f in os.listdir("data"):
+#         os.remove(os.path.join("data", f))
+# centersInfo = getCentersInfo(clustering.clustercenters, Y, trajFilenames, dtrajs)
+# centersInfo_processed = []
+# for cl in centersInfo:
+#     epoch_num, traj_num, snapshot_num = centersInfo[cl]["structure"]
+#     centersInfo_processed.append([cl, int(epoch_num), int(traj_num), int(snapshot_num)])
+# extractInfo = getRepr.getExtractInfo(centersInfo_processed)
+# # extractInfo is a dictionary organized as {[epoch, traj]: [cluster, snapshot]}
+# cl_sets = {}
+# for i_set, cl_list in enumerate(pcca_sets):
+#     for cl in cl_list:
+#         cl_sets[cl] = i_set + 1
+#
+# top_path = "/home/jgilaber/peptides_md/%s/simulation_peptides_%s_shorter/topologies/topology_0.pdb" % (peptide, peptide)
+# top = utilities.getTopologyFile(top_path)
+# rmsd_values = np.zeros(numClusters)
+# rmsd_calc = RMSDCalculator.RMSDCalculator()
+# PDB_initial = atomset.PDB()
+# PDB_initial.initialise(top_path, type="PROTEIN", heavyAtoms=True)
+# for pair in extractInfo:
+#     snapshots = utilities.getSnapshots("/home/jgilaber/peptides_md/%s/simulation_peptides_%s_shorter/%d/trajectories_fixed_%d.xtc" % (peptide, peptide, pair[0], pair[1]))
+#     for cl, n_snap in extractInfo[pair]:
+#         if cl not in cl_sets:
+#             filename = "data/cluster_%d.pdb" % cl
+#         else:
+#             filename = "data/cluster_%d_set_%d.pdb" % (cl, cl_sets[cl])
+#         PDB = atomset.PDB()
+#         PDB.initialise(snapshots[n_snap], heavyAtoms=True, type="PROTEIN", topology=top)
+#         rmsd_val = rmsd_calc.computeRMSD(PDB_initial, PDB)
+#         rmsd_values[cl] = rmsd_val
+#         PDB.writePDB(filename)
+# with open("rmsd_states.txt", "w") as fw:
+#     fw.write("Cluster\tRSMD(A)\tProbability(%)\n")
+#     for cl in range(numClusters):
+#         if cl not in M.active_set:
+#             prob = 0.00
+#         else:
+#             prob = 100*pi[np.where(M.active_set == cl)[0][0]]
+#         fw.write("%d\t%.3f\t%.5f\n" % (cl, rmsd_values[cl], prob))
+# prob = pi[np.argmin(rmsd_values[M.active_set])]
+# kb = 0.0019872041
+# T = 300
+# dG = -kb*T*(np.log(np.max(pi))-np.log(prob))
+# print("Estimation of the dG penalty for the solvated peptide", dG)
+# f = plt.figure(figsize=(8, 5))
+# ax = mplt.scatter_contour(cc_x, cc_y, rmsd_values, fig=f)
+# plt.xlabel("IC 1")
+# plt.ylabel("IC 2")
+# f.suptitle("RMSD to the initial position")
+# plt.savefig("rmsd_initial.png")
