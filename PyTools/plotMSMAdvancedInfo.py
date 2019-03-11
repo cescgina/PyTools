@@ -35,10 +35,11 @@ def parse_arguments():
     parser.add_argument("--path", type=str, help="Path to the folder with the MSM data")
     parser.add_argument("--native", type=str, default=None, help="Path to the native structure to extract the minimum position")
     parser.add_argument("--resname", type=str, default=None, help="Resname of the ligand in the native pdb")
+    parser.add_argument("--atomIds", nargs='*', default=None, help="serial:atomName:resname, e.g. 2048:C1:AIN. May contain more than one atomId")
     parser.add_argument("--SASA_col", type=int, default=None, help="Column of the SASA in the reports (starting to count from 1)")
     parser.add_argument("--path_report", type=str, help="Path to the folder with the reports")
     args = parser.parse_args()
-    return args.nEigen, args.clusters, args.lagtimes, args.nRuns, args.minima, args.o, args.m, args.plotEigenvectors, args.plotGMRQ, args.plotPMF, args.savePlots, args.showPlots, args.filter, args.path, args.native, args.resname, args.SASA_col-1, args.path_report
+    return args.nEigen, args.clusters, args.lagtimes, args.nRuns, args.minima, args.o, args.m, args.plotEigenvectors, args.plotGMRQ, args.plotPMF, args.savePlots, args.showPlots, args.filter, args.path, args.native, args.resname, args.SASA_col-1, args.path_report, args.atomIds
 
 
 def getSASAvalues(representative_file, sasa_col, path_to_report):
@@ -182,13 +183,18 @@ def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plot
         plt.show()
 
 if __name__ == "__main__":
-    n_eigen, clusters_list, lagtime_list, runs, minim, output, size_m, plotEigen, plotGMRQs, plotPMFs, write_plots, show_plots, filter_clusters, path_MSM, native, resname, SASA_col, path_report = parse_arguments()
+    n_eigen, clusters_list, lagtime_list, runs, minim, output, size_m, plotEigen, plotGMRQs, plotPMFs, write_plots, show_plots, filter_clusters, path_MSM, native, resname, SASA_col, path_report, atomIds = parse_arguments()
     if native is not None:
         if resname is None:
             raise ValueError("Resname not specified!!")
         pdb_native = atomset.PDB()
         pdb_native.initialise(u"%s" % native, resname=resname)
-        minim = pdb_native.getCOM()
+        if atomIds is not None:
+            minim = []
+            for atomId in atomIds:
+                minim.extend(pdb_native.getAtom(atomId).getAtomCoords())
+        else:
+            minim = pdb_native.getCOM()
     if lagtime_list is not None and clusters_list is not None:
         root, leaf = os.path.split(path_MSM)
         for tau, k in itertools.product(lagtime_list, clusters_list):
