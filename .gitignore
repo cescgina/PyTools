@@ -1,5 +1,6 @@
 build/
 PyTools/*.pyc
+setup.pyc
 *.sw[op]
 .DS_Store
 PyTools/__pycache__
