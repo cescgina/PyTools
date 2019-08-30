@@ -18,29 +18,38 @@ def parse_arguments():
     parser.add_argument("trajectories", type=int, default=4, help="Number of trajectories per epoch")
     parser.add_argument("--traj_name", type=str, default="trajectory.xtc", help="Name of the trajectory files, including the format extension, default is trajectory.xtc")
     parser.add_argument("--plot_name", type=str, default=None, help="Name of the output file to save")
+    parser.add_argument("--residues", type=str, nargs="*", default=None, help="Number of the residues for which to calculate the RMSF")
     args = parser.parse_args()
-    return args.path, args.trajectories, args.traj_name, args.plot_name
+    return args.path, args.trajectories, args.traj_name, args.plot_name, args.residues
 
 
-def merge_atom_sets(protein, water, cu, traj):
-    atoms = protein.tolist()+cu.tolist()
-    water_set = set()
-    for w in water:
-        for at in traj.top.atom(w).residue.atoms:
-            water_set.add(at.index)
-    return sorted(atoms+list(water_set))
+def parse_residues(res_input):
+    if res_input is None:
+        return res_input
+    residues = set()
+    for res_str in res_input:
+        if "-" in res_str:
+            start, stop = [int(l) for l in res_str.split("-")]
+            residues.update(range(start, stop+1))
+        else:
+            residues.add(int(res_str))
+    return residues
 
 
-def main(sim_path, n_trajs, trajectory_name, plot_name):
+def main(sim_path, n_trajs, trajectory_name, plot_name, residues_selected):
     # since we remove the water molecules, any topology file will be fine
     ref = md.load(os.path.join(sim_path, "topologies", "topology_0.pdb"))
     ref.remove_solvent(inplace=True)
     labels = []
     selections = []
     for res in ref.top.residues:
-        if res.is_protein:
+        if res.is_protein and (residues_selected is None or res.resSeq in residues_selected):
+            if residues_selected is not None:
+                residues_selected.remove(res.resSeq)
             labels.append("%s%d" % (res.code, res.resSeq))
             selections.append(ref.top.select("protein and symbol != 'H' and residue %d" % res.resSeq))
+    if residues_selected is not None and len(residues_selected):
+        raise ValueError("Residues %s not found in protein!" % ", ".join(sorted([str(x) for x in residues_selected])))
     if not os.path.exists("rmsf.npy"):
         avg_xyz = None
         global_traj = None
@@ -80,5 +89,6 @@ def main(sim_path, n_trajs, trajectory_name, plot_name):
     plt.show()
 
 if __name__ == "__main__":
-    in_path, num_trajs, traj_name, draw_plots = parse_arguments()
-    main(in_path, num_trajs, traj_name, draw_plots)
+    in_path, num_trajs, traj_name, draw_plots, selected_res = parse_arguments()
+    selected_res = parse_residues(selected_res)
+    main(in_path, num_trajs, traj_name, draw_plots, selected_res)
