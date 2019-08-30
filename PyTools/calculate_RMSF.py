@@ -32,6 +32,7 @@ def merge_atom_sets(protein, water, cu, traj):
 
 
 def main(sim_path, n_trajs, trajectory_name, plot_name):
+    # since we remove the water molecules, any topology file will be fine
     ref = md.load(os.path.join(sim_path, "topologies", "topology_0.pdb"))
     ref.remove_solvent(inplace=True)
     labels = []
@@ -40,38 +41,40 @@ def main(sim_path, n_trajs, trajectory_name, plot_name):
         if res.is_protein:
             labels.append("%s%d" % (res.code, res.resSeq))
             selections.append(ref.top.select("protein and symbol != 'H' and residue %d" % res.resSeq))
-    selection = ref.top.select("protein and symbol != 'H'")
-    avg_xyz = None
-    global_traj = None
-    trajectory_name = "_%d".join(os.path.splitext(trajectory_name))
+    if not os.path.exists("rmsf.npy"):
+        avg_xyz = None
+        global_traj = None
+        trajectory_name = "_%d".join(os.path.splitext(trajectory_name))
 
+        epochs = utilities.get_epoch_folders(sim_path)
+        n_epochs = len(epochs)
+        for epoch in epochs:
+            with open(os.path.join(sim_path, epoch, "topologyMapping.txt")) as f:
+                top_map = f.read().rstrip().split(":")
+            for i in range(1, n_trajs+1):
+                print("Processing epoch", epoch, "trajectory", i)
+                trajectory = md.load(os.path.join(epoch, trajectory_name % i), top=os.path.join(sim_path, "topologies", "topology_%s.pdb" % top_map[i-1]))
+                if global_traj is None:
+                    avg_xyz = np.mean(trajectory.xyz, axis=0)
+                    global_traj = trajectory.remove_solvent()
+                else:
+                    avg_xyz += np.mean(trajectory.xyz, axis=0)
+                    global_traj += trajectory.remove_solvent()
+        avg_xyz /= (n_epochs*n_trajs)
+        rmsfs = []
+        for i, ind in enumerate(selections):
+            temp = 10*np.sqrt(3*np.mean((global_traj.xyz[:, ind, :] - avg_xyz[ind, :])**2, axis=(1, 2)))
+            rmsfs.append(np.mean(temp))
+        np.save("rmsf.npy", rmsfs)
+    else:
+        rmsfs = np.load("rmsf.npy")
     f1, ax1 = plt.subplots(1, 1)
-    epochs = utilities.get_epoch_folders(sim_path)
-    n_epochs = len(epochs)
-    for epoch in epochs:
-        with open(os.path.join(sim_path, epoch, "topologyMapping.txt")) as f:
-            top_map = f.read().rstrip().split(":")
-        for i in range(1, n_trajs+1):
-            print("Processing epoch", epoch, "trajectory", i)
-            trajectory = md.load(os.path.join(epoch, trajectory_name % i), top=os.path.join(sim_path, "topologies", "topology_%s.pdb" % top_map[i-1]))
-            if global_traj is None:
-                avg_xyz = np.mean(trajectory.xyz[:, selection, :], axis=0)
-                global_traj = trajectory.remove_solvent()
-            else:
-                avg_xyz += np.mean(trajectory.xyz[:, selection, :], axis=0)
-                global_traj += trajectory.remove_solvent()
-            print(avg_xyz.shape)
-    print(global_traj.xyz.shape)
-    print(avg_xyz.shape)
-    avg_xyz /= (n_epochs*n_trajs)
-    rmsfs = []
-    for i, ind in enumerate(selections):
-        temp = 10*np.sqrt(3*np.mean((global_traj.xyz[:, ind, :] - avg_xyz[ind, :])**2, axis=(1, 2)))
-        rmsfs.append(np.mean(temp))
-
+    x_vals = np.array(range(len(labels)))
     ax1.plot(rmsfs, 'x-')
+    ax1.set_xticks(x_vals)
     ax1.set_ylabel(r"RMSF ($\AA$)")
-    f1.legend()
+    ax1.set_xticklabels(labels)
+    ax1.tick_params(axis='x', rotation=90, labelsize=10)
     if plot_name is not None:
         f1.savefig(plot_name)
     plt.show()
