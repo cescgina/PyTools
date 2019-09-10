@@ -30,6 +30,7 @@ def main(nRuns, output, path, divide_volume):
     output_MSM_template = os.path.join(output, "MSM_object_%d.pkl")
     output_volumes_template = os.path.join(output, "volumeOfClusters_%d.dat")
     output_clusters_template = os.path.join(output, "clusterCenters_%d.dat")
+    deltaGs = []
 
     for i in range(nRuns):
         print("Running iterations %d" % i)
@@ -42,12 +43,24 @@ def main(nRuns, output, path, divide_volume):
         pi, cluster_centers = DG.ensure_connectivity(MSMObject, allClusters)
         gpmf, string = DG.calculate_pmf(microstateVolume, pi, divide_volume=divide_volume)
         print(string)
+        deltaGs.append(string)
 
         pmf_xyzg = np.hstack((cluster_centers, np.expand_dims(gpmf, axis=1)))
         np.savetxt(output_template % i, pmf_xyzg)
         shutil.copy(MSM, output_MSM_template % i)
         shutil.copy(volumes, output_volumes_template % i)
         shutil.copy(clusters, output_clusters_template % i)
+
+    arr_dG = [float(line.split()[1]) for line in deltaGs]
+    with open(os.path.join(output, "results_summary.txt"), "w") as fw:
+        fw.write("\n")
+        fw.write("=====\n")
+        fw.write("dG\n")
+        fw.write("bound    Delta G     Delta W     Binding Volume:     Binding Volume contribution\n")
+        for el in deltaGs:
+            fw.write("%s\n" % el)
+        fw.write("=====\n")
+        fw.write("dG = %f +- %f\n" % (np.mean(arr_dG), np.std(arr_dG)))
 
 if __name__ == "__main__":
     n, out, folder, divide = parse_arguments()
