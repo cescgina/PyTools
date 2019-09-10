@@ -39,7 +39,9 @@ def parse_arguments():
     parser.add_argument("--SASA_col", type=int, default=None, help="Column of the SASA in the reports (starting to count from 1)")
     parser.add_argument("--path_report", type=str, help="Path to the folder with the reports")
     args = parser.parse_args()
-    return args.nEigen, args.clusters, args.lagtimes, args.nRuns, args.minima, args.o, args.m, args.plotEigenvectors, args.plotGMRQ, args.plotPMF, args.savePlots, args.showPlots, args.filter, args.path, args.native, args.resname, args.SASA_col-1, args.path_report, args.atomIds
+    if args.SASA_col is not None:
+        args.SASA_col -= 1
+    return args.nEigen, args.clusters, args.lagtimes, args.nRuns, args.minima, args.o, args.m, args.plotEigenvectors, args.plotGMRQ, args.plotPMF, args.savePlots, args.showPlots, args.filter, args.path, args.native, args.resname, args.SASA_col, args.path_report, args.atomIds
 
 
 def getSASAvalues(representative_file, sasa_col, path_to_report):
@@ -147,16 +149,20 @@ def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plot
         if plotPMF:
             data = np.loadtxt(os.path.join(destFolder, "pmf_xyzg_%d.dat" % i))
             g = data[:, -1]
+            annotations = ["Cluster %d" % i for i in range(g.size)]
             if filtered is not None:
                 g = g[filtered]
+                annotations = np.array(annotations)[filtered].tolist()
             print("Clusters with less than 2 PMF:")
             print(" ".join(map(str, np.where(g < 2)[0])))
             print("")
-            f, axarr = plt.subplots(2, 2, figsize=(12, 12))
-            f.suptitle(titleVar)
-            axarr[1, 0].scatter(distance, g)
-            axarr[0, 1].scatter(distance, volume)
-            axarr[0, 0].scatter(g, volume)
+            fig_pmf, axarr = plt.subplots(2, 2, figsize=(12, 12))
+            fig_pmf.suptitle(titleVar)
+            sc1 = axarr[1, 0].scatter(distance, g)
+            sc2 = axarr[0, 1].scatter(distance, volume)
+            sc3 = axarr[0, 0].scatter(g, volume)
+            axes = [axarr[0, 1], axarr[1, 0], axarr[0, 0]]
+            scs = [sc2, sc1, sc3]
             if sasa_col is not None:
                 axarr[1, 1].scatter(sasa, g)
             axarr[1, 0].set_xlabel("Distance to minima")
@@ -165,11 +171,27 @@ def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plot
             axarr[0, 1].set_ylabel("Volume")
             axarr[0, 0].set_xlabel("PMF")
             axarr[0, 0].set_ylabel("Volume")
+            annot1 = axarr[1, 0].annotate("", xy=(0, 0), xytext=(20, 20),
+                                          textcoords="offset points",
+                                          bbox=dict(boxstyle="round", fc="w"),
+                                          arrowprops=dict(arrowstyle="->"))
+            annot1.set_visible(False)
+            annot2 = axarr[0, 1].annotate("", xy=(0, 0), xytext=(20, 20),
+                                          textcoords="offset points",
+                                          bbox=dict(boxstyle="round", fc="w"),
+                                          arrowprops=dict(arrowstyle="->"))
+            annot2.set_visible(False)
+            annot3 = axarr[0, 0].annotate("", xy=(0, 0), xytext=(20, 20),
+                                          textcoords="offset points",
+                                          bbox=dict(boxstyle="round", fc="w"),
+                                          arrowprops=dict(arrowstyle="->"))
+            annot3.set_visible(False)
+            annot_list = [annot2, annot1, annot3]
             if sasa_col is not None:
                 axarr[1, 1].set_xlabel("SASA")
                 axarr[1, 1].set_ylabel("PMF")
             if save_plots:
-                f.savefig(os.path.join(PMFPlots, "pmf_run_%d%s.png" % (i, filter_str)))
+                fig_pmf.savefig(os.path.join(PMFPlots, "pmf_run_%d%s.png" % (i, filter_str)))
     if plotGMRQ:
         for t in GMRQValues:
             plt.figure()
@@ -180,6 +202,34 @@ def main(nEigenvectors, nRuns, m, outputFolder, plotEigenvectors, plotGMRQ, plot
             if save_plots:
                 plt.savefig(os.path.join(GMRQPlots, "GMRQ.png" % t))
     if showPlots and (plotEigenvectors or plotGMRQ or plotPMF):
+        if plotPMFs:
+
+            def update_annot(ind, sc, annot):
+                """Update the information box of the selected point"""
+                pos = sc.get_offsets()[ind["ind"][0]]
+                annot.xy = pos
+                annot.set_text(annotations[int(ind["ind"][0])])
+                # annot.get_bbox_patch().set_facecolor(cmap(norm( z_values[ind["ind"][0]])))
+
+            def hover(event):
+                """Action to perform when hovering the mouse on a point"""
+                # vis = any([annot.get_visible() for annot in annot_list])
+                for i, ax_comp in enumerate(axes):
+                    vis = annot_list[i].get_visible()
+                    if event.inaxes == ax_comp:
+                        for j in range(len(axes)):
+                            if j != i:
+                                annot_list[j].set_visible(False)
+                        cont, ind = scs[i].contains(event)
+                        if cont:
+                            update_annot(ind, scs[i], annot_list[i])
+                            annot_list[i].set_visible(True)
+                            fig_pmf.canvas.draw_idle()
+                        else:
+                            if vis:
+                                annot_list[i].set_visible(False)
+                                fig_pmf.canvas.draw_idle()
+            fig_pmf.canvas.mpl_connect("motion_notify_event", hover)
         plt.show()
 
 if __name__ == "__main__":
