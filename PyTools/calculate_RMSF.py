@@ -78,11 +78,18 @@ def main(sim_path, n_trajs, trajectory_name, plot_name, residues_selected):
     else:
         rmsfs = np.load("rmsf.npy")
     f1, ax1 = plt.subplots(1, 1)
+    # get axis size in inches
+    width = ax1.get_window_extent().transformed(f1.dpi_scale_trans.inverted()).width
+    # font size is assumed to be 12pt and 1pt is 1/72in
+    font = 12*1/72.0
+    # if there are less labels that the max that would fit, show them all
+    n_ticks = max(1, len(labels)//int(np.floor(width/font)))
+    print(width, font, n_ticks, len(labels), width/font)
     x_vals = np.array(range(len(labels)))
     ax1.plot(rmsfs, 'x-')
-    ax1.set_xticks(x_vals)
+    ax1.set_xticks(x_vals[::n_ticks])
+    ax1.set_xticklabels(labels[::n_ticks])
     ax1.set_ylabel(r"RMSF ($\AA$)")
-    ax1.set_xticklabels(labels)
     ax1.tick_params(axis='x', rotation=90, labelsize=10)
     if plot_name is not None:
         f1.savefig(plot_name)
